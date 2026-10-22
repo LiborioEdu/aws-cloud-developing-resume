@@ -1,12 +1,20 @@
 /**
- * AWS Academy Cloud Developing - Aplicação Modular de Resumos
- * Gerencia carregamento dinâmico por módulo, navegação lateral retrátil e histórico de URL.
+ * Jihad - Hub de Resumos & AWS Academy Cloud Developing
+ * Gerencia a Página Inicial do Hub (retângulos de trilhas), a Barra Superior,
+ * o carregamento dinâmico por módulo e a navegação lateral retrátil.
  */
 (function () {
     if (window.__AWS_APP_LOADED__) return;
     window.__AWS_APP_LOADED__ = true;
 
     function initApp() {
+        var hubView = document.getElementById('hub-view');
+        var courseView = document.getElementById('course-view');
+        var btnBackHub = document.getElementById('btn-back-hub');
+        var brandHomeLink = document.getElementById('brand-home-link');
+        var topbarCmdPath = document.getElementById('topbar-cmd-path');
+        var cardAwsCloud = document.getElementById('card-aws-cloud');
+
         var contentContainer = document.getElementById('MainContentScroll');
         var moduleContainer = document.getElementById('module-container');
         var moduleBadge = document.getElementById('active-module-badge');
@@ -19,18 +27,53 @@
         ];
 
         /**
-         * Garante que TODOS os arrows na lateral esquerda iniciem minimizados ao carregar a página.
+         * Garante que TODOS os arrows na lateral esquerda iniciem minimizados.
          */
-        document.querySelectorAll('.sidebar > ul > li.has-submenu').forEach(function (li) {
-            li.classList.remove('expanded');
-        });
+        function collapseAllSidebarArrows() {
+            document.querySelectorAll('.sidebar > ul > li.has-submenu').forEach(function (li) {
+                li.classList.remove('expanded');
+            });
+        }
+
+        collapseAllSidebarArrows();
+
+        /**
+         * Alterna para a Página Inicial do Hub Jihad (Retângulos no centro)
+         */
+        function showHubView(updateUrl) {
+            if (hubView) hubView.classList.remove('hidden');
+            if (courseView) courseView.classList.add('hidden');
+            if (btnBackHub) btnBackHub.classList.remove('visible');
+            if (topbarCmdPath) {
+                topbarCmdPath.textContent = '~/jihad/hub --select-track';
+            }
+            document.title = 'Jihad — Hub de Resumos';
+
+            if (updateUrl && window.history && window.history.replaceState) {
+                window.history.replaceState(null, '', window.location.pathname);
+            }
+        }
+
+        /**
+         * Alterna para a visualização do resumo AWS Cloud Developing
+         */
+        function showCourseView(moduleId, targetAnchor, updateUrl) {
+            if (hubView) hubView.classList.add('hidden');
+            if (courseView) courseView.classList.remove('hidden');
+            if (btnBackHub) btnBackHub.classList.add('visible');
+            document.title = 'Jihad — AWS Cloud Developing';
+
+            return loadModule(moduleId || 'modulo-1', targetAnchor || '#modulo-1', updateUrl);
+        }
 
         /**
          * Descobre a qual módulo pertence um determinado hash (ex: #mod8-lab2 -> modulo-8)
          */
         function resolveModuleFromHash(hash) {
-            if (!hash) return 'modulo-1';
+            if (!hash) return null;
             var cleanHash = hash.replace(/^#/, '');
+            if (!cleanHash || cleanHash === 'hub') return null;
+            if (cleanHash === 'aws') return 'modulo-1';
 
             if (/^modulo-\d+$/.test(cleanHash)) {
                 return cleanHash;
@@ -49,7 +92,7 @@
                 }
             }
 
-            return 'modulo-1';
+            return null;
         }
 
         /**
@@ -126,7 +169,7 @@
         }
 
         /**
-         * Atualiza o estado visual de destaque na barra lateral
+         * Atualiza o estado visual de destaque na barra lateral e no breadcrumb da Top Bar
          */
         function updateSidebarHighlight(moduleId, activeAnchor) {
             document.querySelectorAll('.sidebar > ul > li').forEach(function (li) {
@@ -148,6 +191,9 @@
             var entry = getModuleEntry(moduleId);
             if (moduleBadge && entry && entry.title) {
                 moduleBadge.textContent = entry.title;
+            }
+            if (topbarCmdPath && entry && entry.title) {
+                topbarCmdPath.textContent = '~/jihad/aws-cloud-dev/' + moduleId;
             }
         }
 
@@ -234,6 +280,31 @@
         }
 
         /**
+         * Eventos do Hub Jihad (Barra Superior + Retângulo AWS Cloud Developing)
+         */
+        if (cardAwsCloud) {
+            cardAwsCloud.addEventListener('click', function (e) {
+                e.preventDefault();
+                collapseAllSidebarArrows();
+                showCourseView('modulo-1', '#modulo-1', true);
+            });
+        }
+
+        if (btnBackHub) {
+            btnBackHub.addEventListener('click', function (e) {
+                e.preventDefault();
+                showHubView(true);
+            });
+        }
+
+        if (brandHomeLink) {
+            brandHomeLink.addEventListener('click', function (e) {
+                e.preventDefault();
+                showHubView(true);
+            });
+        }
+
+        /**
          * Cliques nos módulos com sub-menu (Lateral Esquerda)
          * Os arrows iniciam minimizados e só expandem quando o usuário clica.
          */
@@ -309,11 +380,17 @@
         });
 
         /**
-         * Inicialização: carrega o módulo inicial (da URL ou Módulo 1), mantendo todos os arrows minimizados!
+         * Inicialização:
+         * - Se houver hash de módulo na URL (ex: #modulo-3), abre direto o módulo.
+         * - Caso contrário, inicia na Página Inicial do Hub Jihad (com os retângulos no centro).
          */
         var initialHash = window.location.hash;
         var initialModule = resolveModuleFromHash(initialHash);
-        loadModule(initialModule, initialHash || ('#' + initialModule), false);
+        if (initialModule) {
+            showCourseView(initialModule, initialHash || ('#' + initialModule), false);
+        } else {
+            showHubView(false);
+        }
     }
 
     if (document.readyState === 'loading') {
