@@ -1,0 +1,124 @@
+<span class="anchor" id="modulo-4"></span>
+<section data-module-id="modulo-4">
+    <h1>4. Securing Access to Cloud Resources</h1>
+    
+    <span class="anchor-h2" id="mod4-intro"></span>
+    <h2>1. Introduction</h2>
+
+    <h4>Este módulo é totalmente focado em como gerenciar quem pode entrar na sua conta AWS e o que essas pessoas ou sistemas podem fazer lá dentro, utilizando o serviço IAM (AWS Identity and Access Management).</h4>
+
+    <h3>Objetivos de Aprendizado:</h3>
+    <ul>
+        <li>Compreender o Modelo de Responsabilidade Compartilhada (divisão de tarefas de segurança entre você e a AWS).</li>
+        <li>Entender como o IAM ajuda a criar uma barreira de proteção para os seus recursos.</li>
+        <li>Diferenciar os métodos de autenticação de usuários.</li>
+        <li>Aprender a organizar e autorizar acessos usando os três pilares do IAM: Usuários (Users), Grupos (Groups) e Funções/Papéis (Roles).</li>
+    </ul>
+
+    <h3>O Caso da Cafeteria (Cenário Prático):</h3>
+    <ul>
+        <li>Os donos da cafeteria (Frank e Martha) adoraram o site de prova de conceito! Com o sucesso, o projeto vai crescer e novos membros da equipe vão entrar para ajudar a Sofía a desenvolver a aplicação web completa.</li>
+        <li>O grande requisito de negócio agora é a <strong>governança</strong>: antes de continuar escrevendo código, Sofía precisa definir regras rígidas de segurança. Ela vai usar o IAM para criar perfis específicos (por exemplo, um perfil com acesso de "desenvolvedor" e outro de "administrador de banco de dados"), garantindo que cada pessoa ou sistema tenha acesso única e exclusivamente aos recursos que precisa para trabalhar, sem risco de apagarem algo importante por acidente.</li>
+    </ul>
+    <span class="anchor-h2" id="mod4-shared-responsibility"></span>
+    <h2>2. Shared responsibility model</h2>
+
+    <h4>A segurança e a conformidade na AWS funcionam como uma parceria. A regra de ouro que você precisa tatuar na mente para a prova é:</h4>
+    <div class="callout-dica">
+        <ul>
+            <li><strong>A AWS é responsável pela segurança DA nuvem</strong> (Security OF the cloud).</li>
+            <li><strong>O Cliente (Você) é responsável pela segurança NA nuvem</strong> (Security IN the cloud).</li>
+        </ul>
+    </div>
+    <p>Isso foi desenhado para tirar o peso das suas costas de ter que gerenciar infraestrutura física, mas ainda te dar flexibilidade total sobre como construir seus sistemas.</p>
+
+    <h3>Responsabilidades da AWS (Segurança DA Nuvem)</h3>
+    <h4>A Amazon cuida de tudo o que você não consegue tocar ou configurar diretamente. Isso inclui:</h4>
+    <ul>
+        <li><strong>Infraestrutura Global:</strong> A segurança física dos datacenters, Regiões, Zonas de Disponibilidade e Edge Locations.</li>
+        <li><strong>Fundação de Hardware e Software:</strong> Servidores físicos, armazenamento físico, rede física e o software base (como o Hypervisor, que é a camada que virtualiza as máquinas).</li>
+    </ul>
+
+    <h3>Responsabilidades do Cliente (Segurança NA Nuvem)</h3>
+    <h4>Você assume a responsabilidade por tudo o que coloca dentro da AWS ou configura nos serviços. Isso inclui:</h4>
+    <ul>
+        <li><strong>Seus Dados:</strong> Você é sempre responsável por proteger e criptografar os dados dos seus clientes (seja em trânsito ou em repouso).</li>
+        <li><strong>Gerenciamento de Acesso (IAM):</strong> Controlar quem tem permissão para acessar o quê.</li>
+        <li><strong>Sistema Operacional (Guest OS):</strong> Se você sobe uma máquina virtual (Amazon EC2), as atualizações, patches de segurança e configurações do Windows ou Linux são problema seu. A AWS não entra no seu sistema operacional.</li>
+        <li><strong>Rede e Firewall:</strong> Configurar corretamente os Security Groups (firewalls virtuais) para liberar apenas as portas necessárias.</li>
+        <li><strong>Aplicações:</strong> A segurança do código que você desenvolve e dos softwares de terceiros que você instala.</li>
+    </ul>
+
+    <span class="anchor-h2" id="mod4-iam"></span>
+    <h2>3. Introducing AWS Identity and Access Management (IAM)</h2>
+
+    <h4>Antes de criar qualquer acesso, você precisa entender a diferença entre dois conceitos que o IAM gerencia muito bem:</h4>
+    <ul>
+        <li><strong>Autenticação (Authentication):</strong> "Quem é você?" É a verificação da identidade de quem está tentando acessar a AWS (chamado de Principal). Isso é provado usando usuário e senha, chaves de acesso ou, para maior segurança, o MFA (Multi-Factor Authentication / Autenticação de Múltiplos Fatores), como um código no Google Authenticator.</li>
+        <li><strong>Autorização (Authorization):</strong> "O que você pode fazer?" Depois de provar quem você é, o IAM verifica as regras para saber se você tem permissão para realizar aquela ação (ex: você pode ver os arquivos, mas não pode deletá-los).</li>
+    </ul>
+
+    <h3>Os 4 Pilares do IAM</h3>
+    <h4>Para controlar esses acessos, o IAM utiliza quatro componentes principais. Isso é figurinha carimbada em qualquer prova da AWS:</h4>
+    <ul>
+        <li><strong>Usuário IAM (IAM User):</strong> Representa uma pessoa ou uma aplicação (sistema). Possui credenciais permanentes (de longo prazo), como uma senha para o console ou chaves de acesso para rodar códigos.</li>
+        <li><strong>Grupo IAM (IAM Group):</strong> É uma coleção de usuários. Serve para facilitar a sua vida: em vez de dar permissão um por um, você dá permissão ao grupo (ex: "Desenvolvedores") e coloca os usuários lá dentro.</li>
+        <li><strong>Função IAM (IAM Role):</strong> É parecido com o usuário, mas com uma diferença crucial: não possui credenciais permanentes. Em vez disso, fornece credenciais de segurança temporárias. Pessoas ou serviços (como uma máquina EC2 precisando acessar o S3) podem "assumir" essa função por um tempo limitado.</li>
+        <li><strong>Política IAM (IAM Policy):</strong> É o documento (escrito em JSON) que define as permissões exatas (o que é permitido ou negado). Você anexa essas políticas aos Usuários, Grupos ou Funções.</li>
+    </ul>
+
+    <div class="image-container">
+        <img src="img/iam_overview.png" loading="lazy" alt="IAM overview">
+    </div>
+
+    <span class="anchor-h2" id="mod4-authenticating"></span>
+    <h2>4. Authenticating with IAM</h2>
+
+    <h4>A forma como você se autentica muda dependendo de onde você está acessando a AWS:</h4>
+    <ul>
+        <li><strong>Console da AWS (Navegador):</strong> Você faz login utilizando um Usuário e Senha.</li>
+        <li><strong>Acesso Programático (CLI, SDKs e APIs):</strong> Sistemas e códigos não preenchem telas de login. Para eles, você gera um par de chaves composto pelo Access Key ID (pense nele como um nome de usuário) e pela Secret Access Key (pense nela como uma senha super complexa).</li>
+    </ul>
+    <div class="callout-dica">
+        <strong>Atenção (MFA):</strong> Para acessos humanos no Console, é uma forte recomendação de segurança sempre ativar o MFA (Multi-Factor Authentication). Ele exige algo que você sabe (a senha) e algo que você tem (um código no celular ou token físico).
+    </div>
+
+    <h3>O Poder das Funções IAM (IAM Roles)</h3>
+    <h4>As Roles são as grandes estrelas da segurança para aplicações na nuvem. Em vez de gerar senhas fixas que podem vazar, as Roles fornecem credenciais de segurança temporárias. Quando um usuário ou sistema assume uma Role, ele recebe permissões com prazo de validade.</h4>
+    <p>Casos de uso clássicos para provas e dia a dia:</p>
+    <ul>
+        <li><strong>Aplicações no EC2:</strong> O seu servidor EC2 assume a Role para poder gravar arquivos no S3, sem que você precise salvar senhas dentro do servidor.</li>
+        <li><strong>Acesso entre contas (Cross-account access):</strong> Permitir que um desenvolvedor de uma conta AWS parceira acesse a sua conta, sem precisar criar um novo usuário para ele.</li>
+        <li><strong>Aplicativos Mobile/Federação:</strong> O usuário faz login no celular (ex: via Google ou Facebook), a AWS valida isso externamente (Identity Federation) e entrega uma Role temporária para o app acessar os dados.</li>
+    </ul>
+
+    <h3>Gerenciamento de Credenciais (O Arquivo .aws/credentials)</h3>
+    <h4>Regra de ouro absoluta para desenvolvedores: NUNCA escreva suas chaves de acesso diretamente (hardcoded) no seu código-fonte. Se você enviar isso para um repositório como o GitHub, hackers podem roubar sua conta em minutos.</h4>
+    <p>A maneira correta de trabalhar localmente é utilizando o arquivo de credenciais.</p>
+    <ul>
+        <li><strong>Onde fica?</strong> Fica salvo no seu próprio computador (<code>~/.aws/credentials</code> no Linux/Mac ou <code>C:\Users\SEU-USUARIO\.aws\credentials</code> no Windows).</li>
+        <li><strong>Perfis (Profiles):</strong> Dentro desse arquivo, você pode configurar vários perfis diferentes (ex: <code>[default]</code> para a conta de testes e <code>[prod]</code> para a conta de produção). No seu código, você apenas diz para o SDK usar o <code>profile_name='prod'</code>, e ele puxa as chaves de forma segura, sem expô-las no código.</li>
+    </ul>
+
+    <span class="anchor-h2" id="mod4-authorizing"></span>
+    <h2>5. Authorizing with IAM</h2>
+
+    <h4>Toda a lógica de autorização da AWS é baseada em um conceito fundamental de segurança da informação:</h4>
+    
+    <h3>O Princípio do Menor Privilégio (Principle of least privilege)</h3>
+    <p>Nunca dê acesso total para depois tentar restringir. A regra é começar com zero permissões e conceder única e exclusivamente o acesso estritamente necessário para que o usuário ou sistema execute sua função.</p>
+
+    <h3>O Cenário Prático da Cafeteria (Como o IAM funciona na vida real)</h3>
+    <h4>O material ilustra a aplicação dessas regras através das ações da Sofía. Aqui estão as lições arquiteturais tiradas desse cenário:</h4>
+    <ul>
+        <li><strong>O Usuário Raiz (Root User):</strong> É o dono da conta (o e-mail usado no cadastro). Ele tem poder absoluto e irrestrito. <strong>Melhor prática:</strong> A primeira coisa que Sofía fez foi criar um usuário IAM administrador para ela mesma, logar com ele e trancar as credenciais do usuário Root. O Root não deve ser usado no dia a dia.</li>
+        <li><strong>Herança de Grupos:</strong> Sofía criou grupos (Admins, DBAdmins, Developers) e colocou as permissões lá. Quando novos funcionários (como os desenvolvedores ou administradores de banco) entram na empresa, basta adicioná-los aos respectivos grupos e eles herdam todas as políticas automaticamente.</li>
+        <li><strong>A Regra de Ouro do IAM (Deny vs. Allow):</strong> Sofía colocou o consultor Mateo no grupo Admins (que tem permissão para tudo), mas anexou uma política diretamente ao usuário dele dizendo "Não pode gerenciar grupos do IAM" (Explicit Deny).</li>
+    </ul>
+    <div class="callout-dica">
+        <strong>Dica de Prova:</strong> Na AWS, uma negação explícita (Explicit Deny) SEMPRE anula uma permissão (Allow). Mesmo que o grupo permita, se o usuário tiver um Deny, ele será bloqueado.
+    </div>
+    <ul>
+        <li><strong>Uso Estratégico de Roles (Funções):</strong> Dois membros do banco de dados precisavam acessar um serviço diferente (Amazon RDS) apenas por um tempo, para um projeto específico. Em vez de dar essa permissão para o grupo DBAdmins inteiro (o que violaria o menor privilégio), Sofía criou uma Role temporária com acesso ao RDS. Os dois usuários "assumiram" essa Role, fizeram o trabalho e depois a Role foi removida. O mesmo foi feito para um desenvolvedor terceirizado temporário, evitando misturá-lo com o grupo fixo da empresa.</li>
+    </ul>
+</section>

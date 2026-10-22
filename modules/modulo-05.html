@@ -1,0 +1,809 @@
+<span class="anchor" id="modulo-5"></span>
+<section data-module-id="modulo-5">
+    <h1>5. Developing Flexible NoSQL Solutions</h1>
+    
+    <span class="anchor-h2" id="mod5-intro"></span>
+    <h2>1. Introduction</h2>
+
+    <h4>Este módulo abandona os arquivos estáticos e foca no Amazon DynamoDB, o banco de dados NoSQL totalmente gerenciado da AWS. É um dos serviços mais rápidos, escaláveis e cobrados em certificações.</h4>
+
+    <h3>Objetivos de Aprendizado:</h3>
+    <h4>Ao longo deste módulo, você vai aprender a:</h4>
+    <ul>
+        <li>Reconhecer as diferentes opções de banco de dados na AWS.</li>
+        <li>Entender a fundo o funcionamento do DynamoDB: seus componentes, como ele usa Partições (Partitions) para escalar infinitamente e como manter os dados consistentes.</li>
+        <li>Utilizar Índices Secundários (Secondary Indexes) para fazer buscas eficientes.</li>
+        <li>Trabalhar com recursos avançados como Streams e Tabelas Globais (Global Tables).</li>
+        <li>Gerenciar o cálculo de capacidade de leitura e escrita (RCUs e WCUs - um cálculo clássico em exames da AWS).</li>
+        <li>Usar os AWS SDKs para interagir com as tabelas via código.</li>
+    </ul>
+
+    <h3>O Caso da Cafeteria (Cenário Prático):</h3>
+    <p>O site estático da cafeteria precisa evoluir. Frank e Martha querem que as informações sejam atualizadas dinamicamente e que a equipe consiga consultar o estoque de produtos.</p>
+    <p>Para resolver isso, Sofía escolheu o DynamoDB para armazenar as informações do inventário. Como prova de conceito, ela vai desenvolver dois scripts na prática:</p>
+    <ul>
+        <li>Um script para buscar todos os itens do inventário de uma vez.</li>
+        <li>Um script para buscar um único registro específico, filtrando pelo nome do produto.</li>
+    </ul>
+
+    <span class="anchor-h2" id="mod5-db-options"></span>
+    <h2>2. Introducing AWS database options</h2>
+
+    <h4>Os bancos de dados são excelentes soluções de armazenamento persistente. No mundo AWS, eles são divididos em duas grandes categorias: Relacionais (SQL) e Não Relacionais (NoSQL).</h4>
+
+    <h3>Bancos de Dados Relacionais (SQL)</h3>
+    <h4>São as opções clássicas para quem precisa de estrutura rígida e integridade de dados rigorosa.</h4>
+    <ul>
+        <li><strong>Armazenamento:</strong> Tabelas, linhas e colunas.</li>
+        <li><strong>Esquema (Schema):</strong> Rígido. Você define as colunas primeiro e todos os registros precisam respeitá-las.</li>
+        <li><strong>Consultas:</strong> Utilizam SQL padrão.</li>
+        <li><strong>Escalabilidade:</strong> Vertical (você escala "engordando" o servidor com mais CPU e RAM).</li>
+    </ul>
+    <div class="callout-dica">
+        <strong>Quando usar:</strong> Quando seus dados têm relações fortes entre si, você precisa garantir a qualidade e a estrutura dos dados, e não há exigência de performance ou capacidade extrema de leitura/escrita.
+    </div>
+
+    <h3>Opções AWS (Relacionais):</h3>
+    <ul>
+        <li><strong>Amazon RDS:</strong> Serviço gerenciado que suporta os motores mais conhecidos do mercado (PostgreSQL, MySQL, MariaDB, Oracle e Microsoft SQL Server).</li>
+        <li><strong>Amazon Aurora:</strong> O banco de dados relacional proprietário da AWS, feito para a nuvem. É compatível com MySQL (até 5x mais rápido) e PostgreSQL (até 3x mais rápido), entregando segurança e alta disponibilidade por uma fração do custo dos bancos comerciais.</li>
+    </ul>
+    <div class="image-container">
+        <img src="img/dynamodb_rds_aurora.png" loading="lazy" alt="Amazon RDS e Amazon Aurora">
+    </div>
+
+    <h3>Bancos de Dados Não Relacionais (NoSQL)</h3>
+    <h4>São as opções modernas para aplicações de escala global (escala de internet) que precisam de flexibilidade e performance insana.</h4>
+    <ul>
+        <li><strong>Armazenamento:</strong> Pode ser Chave-Valor (Key-value), Documentos ou Grafos.</li>
+        <li><strong>Esquema (Schema):</strong> Dinâmico/Inexistente (Schemaless). Um registro pode ter três atributos e o registro logo abaixo pode ter vinte atributos completamente diferentes.</li>
+        <li><strong>Consultas:</strong> Focadas em coleções de documentos ou recuperação direta por chave.</li>
+        <li><strong>Escalabilidade:</strong> Horizontal (você escala "multiplicando" o número de servidores).</li>
+    </ul>
+    <div class="callout-dica">
+        <strong>Quando usar:</strong> Quando a estrutura dos seus dados varia muito (ou você nem sabe qual será), quando precisa de performance de um dígito de milissegundo e taxas massivas de leitura/escrita que um banco SQL tradicional não aguentaria (ou ficaria caro demais para aguentar).
+    </div>
+
+    <h3>Opções AWS (NoSQL):</h3>
+    <ul>
+        <li><strong>Amazon DynamoDB:</strong> Banco de dados Chave-Valor e de documentos. É o foco deste módulo! Oferece performance em milissegundos e suporte a transações ACID, ótimo para aplicações críticas em escala web.</li>
+        <li><strong>Amazon ElastiCache:</strong> Armazenamento de dados em memória (extremamente rápido), usado geralmente para cache, dados de sessão, análises em tempo real ou jogos.</li>
+        <li><strong>Amazon Neptune:</strong> Banco de dados de grafos, feito para armazenar bilhões de relacionamentos. Excelente para motores de recomendação e detecção de fraudes.</li>
+    </ul>
+    <div class="image-container">
+        <img src="img/dynamodb_elasticache_neptune.png" loading="lazy" alt="Amazon DynamoDB, ElastiCache e Neptune">
+    </div>
+
+    <span class="anchor-h2" id="mod5-key-concepts"></span>
+    <h2>3. Key Concepts for DynamoDB</h2>
+
+    <h4>O Amazon DynamoDB é um banco de dados NoSQL totalmente gerenciado que suporta modelos de dados chave-valor e documentos. Ele foi projetado para operar com latência consistente de um dígito de milissegundo em qualquer escala.</h4>
+
+    <h3>Os Componentes Básicos</h3>
+    <ul>
+        <li><strong>Tables (Tabelas):</strong> O contêiner de nível mais alto onde todos os dados são armazenados. É semelhante a uma tabela de banco relacional, mas sem a necessidade de um esquema pré-definido.</li>
+        <li><strong>Items (Itens):</strong> Cada registro na tabela. Um item é um agrupamento de atributos único em toda a tabela, comparável a uma linha (row) de um banco relacional. Cada tabela pode conter um número infinito de itens.</li>
+        <li><strong>Attributes (Atributos):</strong> O elemento fundamental de dados, comparável a uma coluna. Ao contrário do modelo relacional, a maioria dos atributos não precisa ser declarada na criação da tabela.</li>
+        <li><strong>Primary Key (Chave Primária):</strong> O único atributo obrigatório definido na criação da tabela que identifica univocamente cada item.</li>
+    </ul>
+
+    <h3>Tipos de Chaves Primárias</h3>
+    <h4>O DynamoDB suporta dois tipos distintos de chaves primárias:</h4>
+    <ul>
+        <li><strong>Chave Primária Simples (Partition Key):</strong> Composta por apenas um atributo chamado <em>Partition Key</em> (Chave de Partição / Hash Attribute). O valor dessa chave é passado por uma função hash interna para determinar a partição física onde o item será gravado. Nenhum item pode ter a mesma Partition Key. Exemplo: <code>SensorId</code>.</li>
+        <li><strong>Chave Primária Composta (Partition Key + Sort Key):</strong> Composta por dois atributos: a <em>Partition Key</em> e a <em>Sort Key</em> (Chave de Ordenação / Range Attribute).</li>
+    </ul>
+
+    <div class="callout-dica">
+        <strong>Como funciona a Chave Composta:</strong> Vários itens podem ter exatamente a <em>mesma</em> Partition Key, contanto que possuam Sort Keys <em>diferentes</em>. Todos os itens com a mesma chave de partição são armazenados fisicamente juntos e ordenados pela Sort Key. Exemplo: <code>SensorId</code> (Partição) + <code>Timestamp</code> (Ordenação).
+    </div>
+
+    <div class="image-container">
+        <img src="img/dynamodb_primary_keys.png" loading="lazy" alt="Simple and Composite primary keys in DynamoDB">
+    </div>
+
+    <h3>Flexibilidade e Tipos de Dados (Schemaless)</h3>
+    <h4>Com exceção da chave primária, o DynamoDB é livre de esquema (schemaless), permitindo que itens diferentes na mesma tabela tenham conjuntos completamente distintos de atributos. Os tipos de dados suportados são:</h4>
+    <ul>
+        <li><strong>Escalares (Scalar Types):</strong> Um valor único exato. Suporta <code>Number</code>, <code>String</code>, <code>Binary</code>, <code>Boolean</code> e <code>Null</code>.</li>
+        <li><strong>Conjuntos (Sets):</strong> Múltiplos valores escalares únicos do mesmo tipo. Suporta <code>String Set (SS)</code>, <code>Number Set (NS)</code> e <code>Binary Set (BS)</code>.</li>
+        <li><strong>Documentos (Document Types):</strong> Estruturas complexas aninhadas com até 32 níveis de profundidade, utilizando <code>List (L)</code> (elementos ordenados) e <code>Map (M)</code> (pares chave-valor JSON).</li>
+    </ul>
+
+    <span class="anchor-h2" id="mod5-partitions"></span>
+    <h2>4. Partitions and data</h2>
+
+    <h4>O DynamoDB não guarda todos os dados da sua tabela em um único disco rígido ou servidor. Ele divide sua tabela em pedaços menores chamados Partições (<em>Partitions</em>).</h4>
+
+    <h3>O que são Partições?</h3>
+    <ul>
+        <li><strong>Espaço Físico Gerenciado:</strong> Uma partição é um espaço físico de armazenamento (em discos SSD super rápidos) gerenciado inteiramente pela AWS.</li>
+        <li><strong>Escalabilidade Automática:</strong> Você não cria nem gerencia partições manualmente. Se sua tabela crescer demais ou precisar de mais velocidade, o DynamoDB cria novas partições e espalha os dados automaticamente por elas.</li>
+    </ul>
+
+    <div class="image-container">
+        <img src="img/dynamodb_partitions.png" loading="lazy" alt="Distribuição de partições do DynamoDB">
+    </div>
+
+    <h3>A Função de Hash e a Distribuição</h3>
+    <h4>O que decide para qual partição um dado vai é a sua Chave de Partição (<em>Partition Key</em>).</h4>
+    <ul>
+        <li><strong>Cálculo do Hash:</strong> Quando você manda gravar um item novo, o DynamoDB pega o valor da chave de partição (ex: <code>"AnimalType": "Dog"</code>) e joga em uma Função de Hash (função matemática) interna.</li>
+        <li><strong>Endereçamento Exato:</strong> O resultado numérico desse cálculo indica o endereço exato de uma partição. O item é gravado lá.</li>
+    </ul>
+
+    <div class="callout-dica">
+        <strong>Por que é tão rápido?</strong> Por conta desse cálculo direto, o DynamoDB não precisa vasculhar toda a tabela para encontrar um item; ele sabe exatamente em qual disco ele está. É por isso que uma consulta leva milissegundos, independentemente se a tabela tem 1 megabyte ou 100 terabytes de tamanho.
+    </div>
+
+    <h3>Como a Chave Composta Organiza os Dados</h3>
+    <h4>Se sua tabela usar uma Chave Primária Composta (Partition Key + Sort Key):</h4>
+    <ul>
+        <li><strong>Papel da Partition Key:</strong> A Chave de Partição continua sendo responsável por escolher a partição física (o disco). Ou seja, todos os cachorros (<code>"Dog"</code>) vão cair na mesma partição.</li>
+        <li><strong>Papel da Sort Key:</strong> Dentro dessa partição específica, a Chave de Ordenação entra em ação. O DynamoDB guarda fisicamente todos os itens com a mesma chave de partição agrupados um do lado do outro, ordenados crescentemente pelo valor da Chave de Ordenação (ex: <code>"Fido"</code>, depois <code>"Rover"</code>, depois <code>"Spot"</code>).</li>
+        <li><strong>Buscas Otimizadas em Lote:</strong> Isso torna extremamente rápido fazer buscas em lote, como <em>"Me traga todos os cachorros cujo nome comece com a letra R"</em>.</li>
+    </ul>
+
+    <div class="image-container">
+        <img src="img/dynamodb_partition_sort_keys.png" loading="lazy" alt="Organização e ordenação física de itens no DynamoDB com Partition Key e Sort Key">
+    </div>
+
+    <span class="anchor-h2" id="mod5-secondary-indexes"></span>
+    <h2>5. Secondary indexes</h2>
+
+    <h4>No DynamoDB, a forma mais rápida (e barata) de buscar dados é usando a Chave Primária. Mas e se você precisar pesquisar por outro atributo que não é a chave? É aí que entram os Índices Secundários (<em>Secondary Indexes</em>).</h4>
+
+    <h3>O que é um Índice Secundário?</h3>
+    <h4>Um Índice Secundário funciona como uma "cópia espelho" parcial da sua tabela, organizada com chaves diferentes para permitir buscas super-rápidas baseadas em outros atributos (ex: buscar um pedido pela Data em vez do ID_Pedido).</h4>
+    <ul>
+        <li><strong>Projeção de Atributos (Projected Attributes):</strong> Quando você cria um índice, escolhe quais atributos quer copiar da tabela original para esse índice. No mínimo, as chaves primárias são projetadas automaticamente.</li>
+    </ul>
+
+    <h3>1. Global Secondary Index (GSI - Índice Secundário Global)</h3>
+    <ul>
+        <li><strong>Como funciona:</strong> Cria uma estrutura onde a Chave de Partição E a Chave de Ordenação podem ser totalmente diferentes das chaves da tabela original.</li>
+        <li><strong>Por que é Global?</strong> Porque uma consulta neste índice pode varrer dados de todas as partições originais da tabela base.</li>
+        <li><strong>Limites de Tamanho:</strong> Não possui limite de tamanho.</li>
+        <li><strong>Capacidade (Throughput):</strong> O GSI é totalmente independente: possui sua própria configuração dedicada de capacidade de leitura e escrita (RCUs e WCUs), separada da tabela original.</li>
+        <li><strong>Criação:</strong> Pode ser criado a qualquer momento (durante ou após a criação da tabela).</li>
+    </ul>
+
+    <div class="callout-dica">
+        <strong>Exemplo de GSI:</strong> Em uma tabela <em>Músicas</em> (Chave de partição: <code>Artista</code>), você pode criar um GSI com a chave de partição <code>Gênero</code> para consultar rapidamente todas as músicas de um determinado gênero (ex: "Country"), sem precisar percorrer a tabela inteira com um Scan.
+    </div>
+
+    <div class="image-container">
+        <img src="img/dynamodb_gsi.png" loading="lazy" alt="Global Secondary Index (GSI) no DynamoDB - Diferentes chaves de partição e ordenação">
+    </div>
+
+    <h3>2. Local Secondary Index (LSI - Índice Secundário Local)</h3>
+    <ul>
+        <li><strong>Como funciona:</strong> Mantém a <strong>MESMA</strong> Chave de Partição da tabela original, mas define uma Chave de Ordenação (Sort Key) diferente.</li>
+        <li><strong>Por que é Local?</strong> Porque os dados deste índice ficam confinados (locais) à mesma partição física do item na tabela original.</li>
+        <li><strong>Limites de Tamanho:</strong> Como fica na mesma partição do dado original, o limite máximo de tamanho (dados da partição + índice) para uma mesma Chave de Partição é de <strong>10 GB</strong>.</li>
+        <li><strong>Capacidade (Throughput):</strong> O LSI compartilha (consome) a mesma capacidade de leitura e escrita configurada para a tabela original.</li>
+        <li><strong>Criação Rígida:</strong> <strong>Só pode ser criado no exato momento da criação da tabela.</strong> Depois que a tabela já existe, não é possível adicionar um LSI.</li>
+    </ul>
+
+    <div class="callout-dica">
+        <strong>Exemplo de LSI:</strong> Em uma tabela <em>Músicas</em> (Chave: <code>Artista</code> + Sort: <code>NomeDaMusica</code>), você cria um LSI (Chave: <code>Artista</code> + Sort: <code>Album</code>) para poder listar todos os álbuns de um artista ordenados alfabeticamente.
+    </div>
+
+    <div class="image-container">
+        <img src="img/dynamodb_lsi.png" loading="lazy" alt="Local Secondary Index (LSI) no DynamoDB - Mesma chave de partição com diferente chave de ordenação">
+    </div>
+
+    <span class="anchor-h2" id="mod5-throughput"></span>
+    <h2>6. Read/write Throughput</h2>
+
+    <h4>O DynamoDB oferece dois modos principais de capacidade para atender diferentes perfis de tráfego, previsibilidade e custo:</h4>
+
+    <h3>1. Modo Sob Demanda (On-Demand Capacity Mode)</h3>
+    <ul>
+        <li><strong>Como funciona:</strong> Modelo <em>Pay-per-request</em>. Você paga exatamente pela quantidade de requisições de leitura e escrita realizadas. A tabela escala de forma instantânea e automática de zero até milhares de requisições por segundo sem qualquer intervenção manual.</li>
+        <li><strong>Quando usar:</strong> Ideal para cargas de trabalho novas com tráfego desconhecido, aplicações com picos imprevisíveis ou quando você prefere a simplicidade e conveniência de pagar apenas pelo que usar, sem precisar calcular limites.</li>
+    </ul>
+
+    <h3>2. Modo Provisionado (Provisioned Capacity Mode)</h3>
+    <ul>
+        <li><strong>Como funciona:</strong> Você define previamente a capacidade máxima (um limite) que a tabela pode suportar, e paga um valor fixo por essa capacidade alocada, independentemente de usá-la totalmente ou não.</li>
+        <li><strong>Unidades de Capacidade:</strong> Esse limite é medido em <strong>RCUs</strong> (<em>Read Capacity Units</em>) e <strong>WCUs</strong> (<em>Write Capacity Units</em>).</li>
+    </ul>
+
+    <h3>Como Calcular RCU e WCU (Importante para Provas)</h3>
+    <div class="callout-dica">
+        <strong>Essa matemática cai muito nas provas da AWS. As regras base são:</strong>
+        <ul>
+            <li><strong>1 WCU (Escrita):</strong> Permite gravar <strong>1 item de até 1 KB por segundo</strong>.</li>
+            <li><strong>1 RCU (Leitura Consistente):</strong> Permite ler <strong>1 item de até 4 KB por segundo</strong> (Leitura Fortemente Consistente - <em>Strongly Consistent</em>).</li>
+            <li><strong>Leitura Eventualmente Consistente (Eventual Consistency):</strong> Consome apenas <strong>metade de um RCU</strong> (0.5 RCU) por leitura de até 4 KB. O DynamoDB usa isso por padrão (dados podem vir ligeiramente desatualizados, mas é mais barato).</li>
+        </ul>
+    </div>
+
+    <h3>Exemplo Prático 1: Calculando RCU</h3>
+    <h4><strong>Cenário:</strong> Você precisa ler <code>20 itens por segundo</code>, cada um com <code>11 KB</code>, usando consistência eventual. Quantos RCUs?</h4>
+    <ol>
+        <li><strong>Arredondar o tamanho para o próximo múltiplo de 4 KB:</strong> <code>11 KB</code> arredonda para <code>12 KB</code>.</li>
+        <li><strong>Dividir por 4 KB (tamanho de 1 RCU):</strong> <code>12 / 4 = 3 RCUs</code> necessários para cada leitura.</li>
+        <li><strong>Multiplicar pela quantidade de itens por segundo:</strong> <code>3 RCUs × 20 leituras = 60 RCUs</code> (se fosse fortemente consistente).</li>
+        <li><strong>Ajustar para consistência eventual (divide por 2):</strong> <code>60 / 2 = 30 RCUs</code>.</li>
+    </ol>
+    <div class="callout-dica">
+        <strong>Resultado Final:</strong> São necessários <strong>30 RCUs</strong> para suportar essa carga.
+    </div>
+
+    <h3>Exemplo Prático 2: Calculando WCU</h3>
+    <h4><strong>Cenário:</strong> Você precisa gravar <code>120 itens por minuto</code>, cada um com <code>7 KB</code>. Quantos WCUs?</h4>
+    <ol>
+        <li><strong>Arredondar o tamanho para o próximo múltiplo de 1 KB:</strong> <code>7 KB</code> já é exato (se fosse 6.2 KB, arredondaria para 7 KB). Portanto, <code>7 WCUs</code> por item.</li>
+        <li><strong>Ajustar o tempo para SEGUNDOS:</strong> <code>120 itens por minuto = 2 itens por segundo</code> (120 / 60 segundos).</li>
+        <li><strong>Multiplicar:</strong> <code>7 WCUs × 2 itens/segundo = 14 WCUs</code>.</li>
+    </ol>
+    <div class="callout-dica">
+        <strong>Resultado Final:</strong> São necessários <strong>14 WCUs</strong> para suportar essa carga.
+    </div>
+
+    <span class="anchor-h2" id="mod5-streams-global"></span>
+    <h2>7. Streams and Global Tables</h2>
+
+    <h3>DynamoDB Streams (O "Diário" de Mudanças)</h3>
+    <h4>O <strong>DynamoDB Streams</strong> é um recurso opcional que funciona como um observador em tempo real de todas as alterações feitas na sua tabela.</h4>
+    <ul>
+        <li><strong>O que ele faz:</strong> Captura uma sequência cronológica ordenada no nível de item de cada modificação (criações, atualizações e exclusões).</li>
+        <li><strong>Retenção e Estrutura:</strong> Os registros de log são organizados em contêineres chamados <em>Shards</em> e ficam armazenados por um período estrito de <strong>24 horas</strong>. Após esse prazo, são excluídos automaticamente.</li>
+        <li><strong>Visões do Registro (StreamViewType):</strong> Você escolhe quais informações gravar no stream: apenas chaves (<code>KEYS_ONLY</code>), a imagem anterior (<code>OLD_IMAGE</code>), a nova imagem (<code>NEW_IMAGE</code>) ou ambas as imagens antes e depois da alteração (<code>NEW_AND_OLD_IMAGES</code>).</li>
+    </ul>
+
+    <div class="callout-dica">
+        <strong>Caso de uso clássico:</strong> Arquiteturas orientadas a eventos. Quando um usuário altera seus dados de perfil, o Stream detecta a mudança instantaneamente e aciona uma função <strong>AWS Lambda</strong> para enviar um e-mail de confirmação ou atualizar um índice de busca externo (como OpenSearch).
+    </div>
+
+    <h3>Tabelas Globais (Global Tables)</h3>
+    <h4>Se a sua aplicação possui usuários distribuídos pelo mundo (América do Norte, Europa, Ásia), centralizar o banco de dados em uma única região gera latência perceptível. As <strong>Global Tables</strong> resolvem isso oferecendo replicação multi-região e multi-ativa.</h4>
+    <ul>
+        <li><strong>O que é:</strong> Uma solução totalmente gerenciada multi-ativo (leituras e escritas locais em qualquer região participante). Você define quais regiões deseja e a AWS cria e sincroniza automaticamente réplicas idênticas da tabela.</li>
+        <li><strong>A Mágica da Replicação:</strong> As Tabelas Globais <strong>dependem obrigatoriamente do DynamoDB Streams</strong> para funcionar. Qualquer alteração em uma réplica local é capturada pelo Stream e propagada para as demais réplicas globais em questão de segundos.</li>
+        <li><strong>Resolução de Conflitos (Concurrent Updates):</strong> Se dois usuários atualizarem simultaneamente o mesmo item em regiões diferentes, o DynamoDB adota a estratégia <em>"Último a escrever vence"</em> (<strong>Last Writer Wins</strong>), utilizando carimbos de data/hora nos milissegundos para sincronizar a versão definitiva em todas as réplicas.</li>
+    </ul>
+
+    <div class="image-container">
+        <img src="img/dynamodb_global_tables.png" loading="lazy" alt="Usuários globais acessando réplicas regionais do DynamoDB Global Tables">
+    </div>
+
+    <div class="image-container">
+        <img src="img/dynamodb_streams_replication.png" loading="lazy" alt="Replicação assíncrona entre réplicas via DynamoDB Streams">
+    </div>
+
+    <div class="callout-dica">
+        <strong>Consistência de Leitura em Tabelas Globais (Regra para Exames):</strong>
+        Você só obtém <strong>Leituras Fortemente Consistentes</strong> ao ler na <em>mesma</em> região onde a gravação foi executada. Leituras feitas em réplicas de <em>outras regiões</em> são sempre <strong>Eventualmente Consistentes</strong>, pois há um intervalo curto (geralmente menos de um segundo) para a propagação trans-regional dos dados.
+    </div>
+
+    <span class="anchor-h2" id="mod5-backup-restore"></span>
+    <h2>8. Backup and Restore</h2>
+
+    <h4>O DynamoDB oferece duas estratégias complementares de proteção para garantir a integridade e retenção dos seus dados. Ambas podem ser acionadas pelo AWS Management Console, AWS CLI ou via chamadas de API (SDKs).</h4>
+
+    <h3>1. Backups Sob Demanda (On-Demand Backups)</h3>
+    <h4>São cópias completas (<em>full backups</em>) da sua tabela geradas no momento exato em que você as solicita.</h4>
+    <ul>
+        <li><strong>Quando usar:</strong> Ideais para arquivamento de longo prazo, retenção periódica de dados e cumprimento estrito de normas regulatórias e de auditoria (<em>compliance</em>).</li>
+        <li><strong>Performance Garantida (Zero Impact):</strong> Tirar um backup não degrada o desempenho nem afeta a disponibilidade ou latência da sua tabela em produção.</li>
+        <li><strong>Custo de Capacidade:</strong> As operações de backup não consomem suas unidades de capacidade provisionadas (RCUs/WCUs) da tabela.</li>
+        <li><strong>Sem Limite de Retenção:</strong> Não há limite para a quantidade de backups sob demanda que você pode criar e reter.</li>
+    </ul>
+
+    <h3>2. Recuperação em um Ponto no Tempo (Point-in-Time Recovery - PITR)</h3>
+    <h4>Funciona como uma "máquina do tempo" automatizada e contínua, protegendo a tabela contra desastres, exclusões e corrupções acidentais (por exemplo, quando um script defeituoso apaga registros críticos em produção).</h4>
+    <ul>
+        <li><strong>Como funciona:</strong> Uma vez habilitado com um único clique, você não precisa agendar rotinas. O DynamoDB realiza backups incrementais contínuos nos bastidores.</li>
+        <li><strong>Janela de Restauração de 35 Dias:</strong> Permite restaurar a tabela para <strong>qualquer segundo exato</strong> dentro da janela móvel dos últimos 35 dias (com precisão de segundos).</li>
+        <li><strong>Restauração como Nova Tabela:</strong> Toda restauração (tanto sob demanda quanto PITR) cria uma <strong>nova tabela</strong> com os dados recuperados, preservando a tabela original intacta.</li>
+    </ul>
+
+    <div class="image-container">
+        <img src="img/dynamodb_backup_pitr.png" loading="lazy" alt="Estratégias de Backup, Restore e Point-in-Time Recovery (PITR) no DynamoDB">
+    </div>
+
+    <span class="anchor-h2" id="mod5-basic-ops"></span>
+    <h2>9. Part 1: Basic operations for DynamoDB tables</h2>
+
+    <h3>Visão Geral das Operações da API</h3>
+    <h4>A API do DynamoDB organiza suas ações em grupos lógicos, com foco central nas <strong>Operações de Dados (Data Operations)</strong>.</h4>
+    <p>Diferente de um banco de dados relacional clássico (onde se executam instruções SQL textuais como <code>INSERT INTO</code>, <code>UPDATE</code> ou <code>DELETE</code>), no Amazon DynamoDB as interações ocorrem exclusivamente via <strong>chamadas de métodos da API com envio de estruturas em objetos JSON / Dicionários</strong> (utilizando SDKs como o <strong>Boto3</strong> em Python, AWS SDK for JavaScript, Java, etc.).</p>
+
+    <div class="callout-dica">
+        <strong>Ponto Importante:</strong> As 4 operações fundamentais de manipulação direta de registros em tabelas são <code>CreateTable</code> (plano de controle), <code>PutItem</code>, <code>UpdateItem</code> e <code>DeleteItem</code> (plano de dados), complementadas por <strong>Expressões Condicionais (Condition Expressions)</strong> para garantir consistência e atomicidade.
+    </div>
+
+    <h3>1. Criar uma Tabela (CreateTable)</h3>
+    <h4>Esta é uma operação do <strong>Plano de Controle (Control Plane)</strong>, responsável por provisionar a infraestrutura da tabela.</h4>
+    <ul>
+        <li><strong>O que faz:</strong> Cria a definição da tabela em si.</li>
+        <li><strong>Comportamento Assíncrono:</strong> A chamada retorna imediatamente com a tabela no status <code>CREATING</code> por alguns instantes até transicionar para <code>ACTIVE</code> (pronta para uso).</li>
+        <li><strong>Parâmetros Obrigatórios:</strong>
+            <ul>
+                <li><code>TableName</code>: Nome exclusivo da tabela no escopo da conta/região.</li>
+                <li><code>KeySchema</code>: Define a estrutura da Chave Primária — quem atua como Partition Key (<code>HASH</code>) e quem atua como Sort Key (<code>RANGE</code>), se for chave composta.</li>
+                <li><code>AttributeDefinitions</code>: Especifica o tipo de dados dos atributos que compõem as chaves (ex: <code>'S'</code> para String, <code>'N'</code> para Number, <code>'B'</code> para Binary). Atributos que não fazem parte de chaves não precisam ser declarados previamente.</li>
+                <li><code>ProvisionedThroughput</code>: Configuração de capacidade provisionada inicial (<code>ReadCapacityUnits</code> e <code>WriteCapacityUnits</code>), necessária caso não seja selecionado o modo On-Demand (Pay-per-request).</li>
+            </ul>
+        </li>
+    </ul>
+
+    <div class="image-container">
+        <img src="img/dynamodb_create_table.png" loading="lazy" alt="DynamoDB CreateTable Operation Diagram">
+    </div>
+
+    <h3>2. Criar ou Sobrescrever um Item (PutItem)</h3>
+    <h4>Insere um novo item ou <strong>sobrescreve integralmente</strong> um item preexistente com a mesma chave primária.</h4>
+    <ul>
+        <li><strong>O que faz:</strong> Grava um registro completo na tabela.</li>
+        <li><strong>Parâmetros:</strong> Exige o parâmetro <code>Item</code> completo (mapa de chave-valor contendo obrigatoriamente a chave primária e, opcionalmente, qualquer quantidade de atributos adicionais).</li>
+    </ul>
+
+    <div class="callout-dica">
+        <strong>⚠️ Detalhe Crucial para o Exame:</strong> Se você executar um <code>PutItem</code> passando uma Chave Primária que <strong>já existe</strong> na tabela, o DynamoDB <strong>NÃO gera erro</strong>! Ele simplesmente <strong>apaga o registro antigo por inteiro e grava o novo</strong> por cima. Para evitar essa substituição acidental de dados, deve-se utilizar uma <em>Condition Expression</em> (como <code>attribute_not_exists(PK)</code>).
+    </div>
+
+    <div class="image-container">
+        <img src="img/dynamodb_put_item.png" loading="lazy" alt="DynamoDB PutItem Operation Diagram">
+    </div>
+
+    <h3>3. Atualizar um Item (UpdateItem)</h3>
+    <h4>Modifica atributos específicos de um item existente sem a necessidade de reescrever ou reenviar todos os outros atributos.</h4>
+    <ul>
+        <li><strong>Como funciona:</strong> Fornece-se a Chave Primária (<code>Key</code>) para localizar o item e uma expressão de atualização (<code>UpdateExpression</code>) descrevendo a alteração (ex: <code>SET age = :val1</code>), acompanhada dos valores de substituição (<code>ExpressionAttributeValues</code>).</li>
+    </ul>
+
+    <div class="callout-dica">
+        <strong>⚠️ Detalhe Crucial para o Exame (Comportamento de Upsert):</strong> Se o item com a chave primária fornecida <strong>não existir</strong>, o DynamoDB <strong>cria um novo item do zero</strong> contendo a chave primária e os atributos especificados na <code>UpdateExpression</code>!
+    </div>
+
+    <div class="image-container">
+        <img src="img/dynamodb_update_item.png" loading="lazy" alt="DynamoDB UpdateItem Operation Diagram">
+    </div>
+
+    <h3>4. Deletar um Item (DeleteItem)</h3>
+    <h4>Remove permanentemente um único item da tabela com base na sua chave primária exata.</h4>
+    <ul>
+        <li><strong>Como funciona:</strong> Requer apenas a especificação da Chave Primária completa (<code>Key</code>: Partition Key e Sort Key, se aplicável).</li>
+        <li><strong>Consumo de Throughput:</strong> Deletar um item consome unidades de escrita (WCUs) proporcionais ao tamanho do item excluído.</li>
+    </ul>
+
+    <div class="image-container">
+        <img src="img/dynamodb_delete_item.png" loading="lazy" alt="DynamoDB DeleteItem Operation Diagram">
+    </div>
+
+    <h3>Bônus de Segurança: Expressões Condicionais (Condition Expressions)</h3>
+    <h4>Mecanismo de proteção atômico para prevenir sobrescritas indevidas, exclusões acidentais ou condições de corrida (race conditions).</h4>
+    <ul>
+        <li><strong>Por que usar:</strong> As operações <code>PutItem</code>, <code>UpdateItem</code> e <code>DeleteItem</code> podem ser destrutivas se executadas sem validação. Condition Expressions garantem que a mutação só ocorra se uma premissa de negócio for atendida.</li>
+        <li><strong>Como funciona:</strong> Atrela-se uma condição à requisição. O DynamoDB avalia a condição <strong>no lado do servidor</strong> antes de efetivar a gravação. Se a condição for verdadeira, a operação executa; se for falsa, o banco recusa a operação e retorna o erro <code>ConditionalCheckFailedException</code> sem alterar nenhum dado.</li>
+        <li><strong>Exemplo Prático:</strong> Desbloquear a conta de um usuário (<code>SET accountLocked = 'N'</code>) através de um <code>UpdateItem</code>, <strong>SOMENTE SE</strong> o tempo decorrido desde o último login com falha for superior a 24 horas (<code>currentLoginTime > lastFailedLoginTime + 24 hours</code>).</li>
+    </ul>
+
+    <div class="image-container">
+        <img src="img/dynamodb_condition_expressions.png" loading="lazy" alt="DynamoDB Condition Expressions Diagram">
+    </div>
+
+
+    <span class="anchor-h2" id="mod5-basic-ops-part2"></span>
+    <h2>9. Part 2: Basic operations for DynamoDB tables</h2>
+
+    <h3>Formas de Recuperação de Dados</h3>
+    <h4>Existem três métodos primordiais para ler dados no Amazon DynamoDB: <code>GetItem</code>, <code>Query</code> e <code>Scan</code>. Eles diferem profundamente em eficiência, velocidade e custo de Throughput (RCUs).</h4>
+
+    <h3>1. GetItem (O Sniper)</h3>
+    <h4>Busca cirúrgica de um <strong>único item específico</strong> na tabela com a máxima eficiência e menor latência possível.</h4>
+    <ul>
+        <li><strong>O que faz:</strong> Busca um único registro diretamente na tabela.</li>
+        <li><strong>Como funciona:</strong> É obrigatório fornecer a <strong>Chave Primária completa e exata</strong> (Partition Key e Sort Key, se a tabela tiver chave composta).</li>
+        <li><strong>Eficiência e Custo:</strong> É o método mais rápido, previsível (latência consistente de 1 dígito de milissegundo) e barato de leitura, pois o DynamoDB vai direto na partição física exata do disco onde o item está gravado.</li>
+        <li><strong>Otimização com ProjectionExpression:</strong> Você pode usar o parâmetro <code>ProjectionExpression</code> para solicitar apenas os atributos necessários de volta, evitando trafegar o item inteiro pela rede (ex: trazer apenas o <code>first_name</code> e <code>account_type</code> deste <code>username</code>).</li>
+    </ul>
+
+    <div class="callout-dica">
+        <strong>⚠️ Dica de Prova sobre ProjectionExpression:</strong> O uso de <code>ProjectionExpression</code> economiza banda de rede e memória na sua aplicação, mas <strong>NÃO reduz o consumo de RCUs</strong>! O DynamoDB cobra RCUs com base no tamanho total do item lido no disco antes de filtrar os atributos projetados.
+    </div>
+
+    <div class="image-container">
+        <img src="img/dynamodb_get_item.png" loading="lazy" alt="DynamoDB GetItem Operation Diagram">
+    </div>
+
+    <pre><code># Exemplo de leitura cirúrgica com GetItem (Boto3)
+response = table.get_item(
+    Key={
+        'username': 'janedoe',
+        'last_name': 'Doe'
+    }
+)
+item = response['Item']
+print(item)
+# Saída: {'username': 'janedoe', 'first_name': 'Jane', 'last_name': 'Doe', 'account_type': 'standard_user', 'age': Decimal('25')}</code></pre>
+
+    <h3>2. Query (A Busca Eficiente)</h3>
+    <h4>Pesquisa focada e altamente otimizada, retornando uma coleção ordenada de itens que compartilham a mesma Chave de Partição.</h4>
+    <ul>
+        <li><strong>O que faz:</strong> Retorna uma coleção de itens (zero, um ou vários) que possuem a mesma Chave de Partição (Partition Key).</li>
+        <li><strong>Como funciona:</strong> É obrigatório fornecer uma <code>KeyConditionExpression</code> especificando o valor exato da Partition Key (ex: <code>Key('username').eq('johndoe')</code>). Opcionalmente, pode-se filtrar e ordenar pela Sort Key (ex: traga todos os registros de um sensor com data maior que determinada marca temporal).</li>
+        <li><strong>Eficiência:</strong> Altamente performático. O DynamoDB acessa diretamente a partição correspondente no cluster e recupera os dados já previamente ordenados pela Sort Key.</li>
+        <li><strong>Filtro Adicional (FilterExpression):</strong> Depois que o DynamoDB localiza os dados pela chave primária, você pode aplicar um <code>FilterExpression</code> para refinar os resultados com base em atributos que não fazem parte da chave antes de enviá-los à aplicação.</li>
+    </ul>
+
+    <div class="callout-dica">
+        <strong>⚠️ Dica de Prova sobre FilterExpression:</strong> O <code>FilterExpression</code> é aplicado <strong>DEPOIS</strong> que os dados são lidos do disco e <strong>NÃO reduz o consumo de RCUs</strong>. Você paga pelas RCUs de todos os itens recuperados pela <code>KeyConditionExpression</code>, mesmo que o filtro descarte a maioria deles antes da entrega.
+    </div>
+
+    <div class="image-container">
+        <img src="img/dynamodb_query_operation.png" loading="lazy" alt="DynamoDB Query Operation Example">
+    </div>
+
+    <pre><code># Exemplo de consulta com Query (Boto3)
+response = table.query(
+    KeyConditionExpression = Key('username').eq('johndoe')
+)
+items = response['Items']</code></pre>
+
+    <h3>3. Scan (A Varredura Lenta - Cuidado!)</h3>
+    <h4>Operação de força bruta que examina <strong>cada item de toda a tabela ou índice</strong>, de ponta a ponta.</h4>
+    <ul>
+        <li><strong>O que faz:</strong> Lê todos os itens de toda a tabela (ou índice global/local) sequencialmente.</li>
+        <li><strong>Como funciona:</strong> O banco varre partição por partição, avaliando item por item. Mesmo que você aplique um <code>FilterExpression</code> (ex: <code>Attr('age').lt(27)</code>), o DynamoDB obrigatoriamente lê <strong>100% da tabela no disco</strong> para só depois descartar o que não bate com o filtro.</li>
+        <li><strong>Eficiência e Custo:</strong> É a operação mais cara, demorada e que mais consome RCUs. Em tabelas grandes, pode consumir toda a cota provisionada e gerar erros de <code>ProvisionedThroughputExceededException</code> (throttling) para toda a aplicação.</li>
+        <li><strong>Regra de Ouro:</strong> <strong>Evite o Scan!</strong> Sempre que possível, modele seus dados e use Índices Secundários (GSIs) para resolver suas consultas com <code>Query</code>. Se o Scan for realmente inevitável, utilize um <strong>Scan Paralelo (Parallel Scan)</strong> dividindo a varredura em múltiplas threads concorrentes.</li>
+    </ul>
+
+    <div class="image-container">
+        <img src="img/dynamodb_scan_operation.png" loading="lazy" alt="DynamoDB Scan Operation Example">
+    </div>
+
+    <pre><code># Exemplo de varredura com Scan (Boto3)
+response = table.scan(
+    FilterExpression = Attr('age').lt(27)
+)
+items = response['Items']</code></pre>
+
+    <h3>Otimizando Consultas e Scans (Limites e Paginação)</h3>
+    <h4>Para evitar que uma única busca sature a rede, esgote a memória da aplicação ou cause picos descontrolados de RCUs, o DynamoDB impõe limites automáticos:</h4>
+    <ul>
+        <li><strong>Paginação Automática de 1 MB:</strong> Uma única chamada de <code>Query</code> ou <code>Scan</code> nunca retorna mais do que <strong>1 Megabyte</strong> de dados brutos. Se a busca encontrar mais dados, o banco devolve os itens processados até 1 MB acompanhados de um cursor/marcador: <code>LastEvaluatedKey</code>.</li>
+        <li><strong>Como Buscar as Próximas Páginas:</strong> Sua aplicação deve verificar se <code>LastEvaluatedKey</code> está presente na resposta. Se estiver, faz uma nova chamada passando esse valor no parâmetro <code>ExclusiveStartKey</code> para continuar a leitura de onde parou, iterando até que a chave venha vazia.</li>
+        <li><strong>Parâmetro Limit:</strong> Permite estipular um teto máximo de itens a serem avaliados antes de interromper a chamada (observação: o <code>Limit</code> é aplicado antes do <code>FilterExpression</code>).</li>
+    </ul>
+
+    <h3>Operações em Lote e Transações (Batch vs Transact)</h3>
+    <h4>Fazer chamadas individuais na API para cada item gera alta latência de rede. Para solucionar isso, o DynamoDB oferece operações agrupadas:</h4>
+
+    <h4>1. Operações em Lote (Batch operations)</h4>
+    <ul>
+        <li><code>BatchGetItem</code>: Lê múltiplos itens de uma vez (até <strong>100 itens</strong> ou <strong>16 MB</strong> no total), podendo inclusive buscar em tabelas diferentes na mesma requisição.</li>
+        <li><code>BatchWriteItem</code>: Grava (<code>PutItem</code>) ou deleta (<code>DeleteItem</code>) múltiplos itens (até <strong>25 requisições</strong> ou <strong>16 MB</strong> no total). Não suporta <code>UpdateItem</code>.</li>
+        <li><strong>Característica Crucial (Processamento Independente):</strong> As operações do lote são executadas individualmente. Se você enviar 25 itens e o item 3 falhar (por exemplo, por throttling), os outros 24 serão persistidos normalmente. A API devolve os itens pendentes no campo <code>UnprocessedItems</code> para que sua aplicação tente gravá-los novamente.</li>
+    </ul>
+
+    <h4>2. Operações Transacionais (Transaction operations)</h4>
+    <ul>
+        <li>Utilizadas para processos críticos de negócio que exigem garantia matemática de consistência (ex: debitar o saldo da Conta A e creditar na Conta B).</li>
+        <li><code>TransactWriteItems</code> / <code>TransactGetItems</code>: Realiza alterações ou leituras coordenadas em múltiplos itens (até <strong>100 itens</strong> ou <strong>4 MB</strong>).</li>
+        <li><strong>Característica Crucial (Garantia ACID - Tudo ou Nada):</strong> É uma regra estrita de <em>all-or-nothing</em>. Se um único item falhar na validação ou na expressão condicional, <strong>toda a transação é cancelada e revertida</strong>, garantindo que os dados nunca fiquem corrompidos ou em estado intermediário inconsistente.</li>
+    </ul>
+
+    <div class="callout-dica">
+        <strong>Resumo Rápido para Exame:</strong><br>
+        • <strong>Batch:</strong> Execução independente, até 25 writes ou 100 reads. Falha parcial tratada via <code>UnprocessedItems</code>.<br>
+        • <strong>Transact:</strong> Atômica (ACID), regra de "tudo ou nada". Reverte 100% da operação se 1 item falhar.
+    </div>
+
+
+    <span class="anchor-h2" id="mod5-lab"></span>
+    <div class="lab-section">
+        <h2>Lab 5.1: Working with Amazon DynamoDB</h2>
+
+        <h3>Visão geral e objetivos do laboratório</h3>
+        <p>Neste laboratório, você usará o <strong>Amazon DynamoDB</strong> para armazenar e gerenciar dinamicamente as informações do cardápio da cafeteria. O uso de bancos de dados NoSQL totalmente gerenciados, como o DynamoDB, simplifica o gerenciamento de dados porque permite consultar, classificar, editar e indexar registros com altíssima performance, escalabilidade automática e baixa latência. Você usará a <strong>AWS Command Line Interface (AWS CLI)</strong> e o <strong>AWS SDK para Python (Boto3)</strong> para interagir com o DynamoDB.</p>
+        <p>Nos próximos laboratórios, você usará chamadas de interface de programação de aplicativo (API) do site da cafeteria para recuperar e atualizar dinamicamente os dados armazenados na tabela do DynamoDB.</p>
+        <p>Depois de concluir este laboratório, você deverá ser capaz de:</p>
+        <ul>
+            <li>Criar uma tabela do DynamoDB via código usando o AWS SDK para Python (Boto3).</li>
+            <li>Adicionar e gerenciar dados na tabela via AWS CLI e SDK.</li>
+            <li>Modificar itens da tabela utilizando Expressões de Condição (<code>ConditionExpression</code>) para prevenir sobrescritas acidentais.</li>
+            <li>Executar cargas em lote eficientes (<code>BatchWriteItem</code>) e entender as estratégias de <em>Last Write Wins</em> versus <em>Fail-Fast</em>.</li>
+            <li>Consultar a tabela usando operações de varredura paginada (<code>scan</code>) e busca cirúrgica pontual (<code>get_item</code>).</li>
+            <li>Adicionar um <strong>Índice Secundário Global (GSI) esparso</strong> a uma tabela existente usando a operação <code>UpdateTable</code> e realizar buscas filtradas.</li>
+        </ul>
+
+        <h3>Duração</h3>
+        <p>A duração estimada deste laboratório é de aproximadamente <strong>90 minutos</strong>.</p>
+
+        <h3>Restrições de serviço AWS</h3>
+        <p>Neste ambiente de laboratório, o acesso aos serviços e às ações de serviços da AWS pode ser restrito ao necessário para concluir as instruções. Você poderá encontrar erros se tentar acessar outros serviços ou executar ações além das descritas neste laboratório.</p>
+
+        <h3>Cenário</h3>
+        <p>O site da cafeteria está em pleno funcionamento e a equipe do estabelecimento notou um aumento expressivo no fluxo de novos clientes. Vários clientes mencionaram que seria muito útil se o site tivesse um cardápio atualizado em tempo real para conferir a disponibilidade de doces, salgados e bebidas antes de se deslocarem até o local.</p>
+        <p>Frank e Martha pedem que Sofía analise a viabilidade de implementar esse recurso dinâmico. Sofía está se sentindo cada vez mais confiante em suas habilidades de desenvolvimento com Python e está aprendendo a selecionar a melhor opção de armazenamento na nuvem AWS. Ela sabe que, para alimentar o site de forma dinâmica e escalável, precisa de um banco NoSQL gerenciado, aprender a estruturar as tabelas, carregar registros de produtos e criar scripts de recuperação e consulta.</p>
+
+        <h3>Acesso ao Console de Gerenciamento da AWS</h3>
+        <ul>
+            <li>No início das instruções, selecione <strong>Start Lab (Iniciar laboratório)</strong> e aguarde até que o status mude para <strong>Ready (Pronto)</strong>.</li>
+            <li>Selecione <strong>Details (Detalhes)</strong> &gt; <strong>AWS: Show (AWS: Exibir)</strong> e copie as credenciais de acesso ao ambiente IDE: <code>LabIDEURL</code> e <code>LabIDEPassword</code>.</li>
+            <li>Abra a URL do <code>LabIDEURL</code> em uma nova guia do navegador, insira a senha e faça o login no <strong>VS Code IDE (code-server)</strong>.</li>
+            <li>No painel superior do laboratório, selecione <strong>AWS</strong> para abrir o Console de Gerenciamento da AWS em outra guia paralela.</li>
+        </ul>
+
+        <h3>Uma solicitação comercial da cafeteria: armazenar as informações do cardápio na nuvem</h3>
+        <p>Frank e Martha querem que o site exiba o cardápio com disponibilidade e preços em tempo real. Sofía opta pelo DynamoDB e decide desenvolver dois scripts essenciais como prova de conceito (PoC): um para recuperar todos os itens de inventário da tabela e outro para buscar um único produto específico pelo seu nome.</p>
+
+        <h3>Tarefa 1: Preparação do laboratório</h3>
+        <p>Nesta etapa preparatória, você configurará o ambiente do VS Code IDE com o código-fonte e atualizará os pacotes da AWS CLI e do SDK Boto3.</p>
+        <ol>
+            <li>No terminal Bash do VS Code (localizado na parte inferior da tela), execute os comandos para baixar e extrair o pacote de recursos do laboratório:
+<pre><code>wget https://aws-tc-largeobjects.s3.us-west-2.amazonaws.com/CUR-TF-200-ACCDEV-2-91558/03-lab-dynamo/code.zip -P /home/ec2-user/environment
+unzip code.zip</code></pre>
+                <div class="callout-dica"><strong>Dica:</strong> Isso criará as pastas <code>resources</code> e <code>python_3</code> no painel de navegação à esquerda do VS Code.</div>
+            </li>
+            <li>Execute o script de atualização da AWS CLI para garantir a versão 2:
+<pre><code>chmod +x ./resources/setup.sh && ./resources/setup.sh</code></pre>
+            </li>
+            <li>Valide as versões instaladas no terminal:
+<pre><code>aws --version
+pip3 show boto3</code></pre>
+            </li>
+        </ol>
+
+        <h3>Tarefa 2: Criação de uma tabela do DynamoDB usando o SDK for Python</h3>
+        <p>Nesta tarefa, você assumirá o papel de Sofía para criar a tabela do DynamoDB usando o SDK Boto3.</p>
+        <p>A tabela será definida inicialmente com o atributo <code>product_name</code> atuando como <strong>Chave de Partição (Partition Key / HASH)</strong>. Como o nome de cada produto da cafeteria é único, ele funciona perfeitamente como chave primária simples.</p>
+        <div class="callout-dica">
+            <strong>⚠️ Regra de Ouro da Chave Primária:</strong> As chaves primárias no DynamoDB são <strong>imutáveis após a criação da tabela</strong>. Se você precisar alterar o atributo de chave primária posteriormente, será necessário criar uma nova tabela do zero e migrar os dados.
+        </div>
+        <ol>
+            <li>Verifique no Console AWS &gt; DynamoDB &gt; <strong>Tables (Tabelas)</strong> se não há nenhuma tabela criada no momento na região <code>us-east-1</code>.</li>
+            <li>No VS Code, abra o arquivo <code>python_3/create_table.py</code> e substitua o espaço reservado <code>&lt;FMI_1&gt;</code> pelo nome da tabela: <code>FoodProducts</code>.</li>
+            <li>Analise a estrutura do script Python:
+<pre><code>import boto3
+
+# Instancia o recurso de alto nível do DynamoDB na região us-east-1
+DDB = boto3.resource('dynamodb', region_name='us-east-1')
+
+params = {
+    'TableName': 'FoodProducts',
+    'KeySchema': [
+        {'AttributeName': 'product_name', 'KeyType': 'HASH'}  # Partition Key
+    ],
+    'AttributeDefinitions': [
+        {'AttributeName': 'product_name', 'AttributeType': 'S'} # Tipo String
+    ],
+    'ProvisionedThroughput': {
+        'ReadCapacityUnits': 1,
+        'WriteCapacityUnits': 1
+    }
+}
+
+# Cria a tabela desempacotando o dicionário de parâmetros
+table = DDB.create_table(**params)
+
+# Aguarda de forma síncrona a tabela transicionar de CREATING para ACTIVE
+table.wait_until_exists()
+print("Done")</code></pre>
+            </li>
+            <li>No terminal Bash, acesse a pasta e execute o script:
+<pre><code>cd python_3
+python3 create_table.py</code></pre>
+                <p>Após alguns instantes, o terminal exibirá <code>Done</code>.</p>
+            </li>
+            <li>Confirme a criação via AWS CLI:
+<pre><code>aws dynamodb list-tables --region us-east-1</code></pre>
+                <p>Saída esperada:</p>
+<pre><code>{
+    "TableNames": [
+        "FoodProducts"
+    ]
+}</code></pre>
+            </li>
+            <li>No console do DynamoDB, atualize a lista e verifique se a tabela <code>FoodProducts</code> está com o status <strong>Ativo (Active)</strong>.</li>
+        </ol>
+
+        <h3>Tarefa 3: Trabalho com dados do DynamoDB: noções básicas sobre as expressões de condição</h3>
+        <p>Agora que a tabela existe, Sofía quer analisar o comportamento de gravação de registros e entender os riscos de sobrescrita acidental.</p>
+        <ol>
+            <li>Examine o arquivo <code>resources/not_an_existing_product.json</code>:
+<pre><code>{
+    "product_name": {"S": "best cake"},
+    "product_id": {"S": "676767676767"}
+}</code></pre>
+                <div class="callout-dica"><strong>Schema-less:</strong> Observe que o atributo <code>product_id</code> não foi declarado na criação da tabela. O DynamoDB é livre de esquema para atributos que não fazem parte da chave primária, permitindo adicionar qualquer atributo em tempo de execução sem alterar a DDL da tabela!</div>
+            </li>
+            <li>Insira o primeiro item via AWS CLI:
+<pre><code>aws dynamodb put-item     --table-name FoodProducts     --item file://../resources/not_an_existing_product.json     --region us-east-1</code></pre>
+            </li>
+            <li>No console do DynamoDB, acesse <strong>Explore items (Explorar itens da tabela)</strong> e confirme que o item <code>best cake</code> foi registrado com sucesso.</li>
+            <li>Adicione um segundo registro: no VS Code, abra <code>not_an_existing_product.json</code>, altere <code>product_name</code> de <code>best cake</code> para <code>best pie</code> (mantendo o mesmo <code>product_id</code>) e execute o comando <code>aws dynamodb put-item</code> novamente. Ambos os itens coexistem na tabela porque as chaves primárias são diferentes.</li>
+            <li><strong>O Perigo da Sobrescrita sem Condição:</strong>
+                <ul>
+                    <li>No arquivo <code>not_an_existing_product.json</code>, mantenha <code>product_name</code> como <code>best pie</code> e altere <code>product_id</code> para <code>3333333333</code>.</li>
+                    <li>Execute o comando <code>aws dynamodb put-item</code> novamente.</li>
+                    <li>Ao consultar a tabela no console, você perceberá que o <code>product_id</code> do item <code>best pie</code> foi alterado para <code>3333333333</code>! O registro anterior foi completamente substituído sem nenhum aviso ou erro.</li>
+                </ul>
+            </li>
+            <li><strong>Protegendo com Expressões de Condição (Condition Expressions):</strong>
+                <p>Para impedir que um produto existente seja sobrescrito, utiliza-se a função <code>attribute_not_exists(product_name)</code>:</p>
+<pre><code>aws dynamodb put-item     --table-name FoodProducts     --item file://../resources/an_existing_product.json     --condition-expression "attribute_not_exists(product_name)"     --region us-east-1</code></pre>
+                <p>Como o item já existe na tabela, o DynamoDB bloqueia a operação no servidor e retorna imediatamente o erro esperado:</p>
+<pre><code>An error occurred (ConditionalCheckFailedException) when calling the PutItem operation: The conditional request failed</code></pre>
+            </li>
+        </ol>
+
+        <h3>Tarefa 4: Adicionar e modificar um único item usando o SDK</h3>
+        <p>Sofía decide migrar essa lógica de proteção condicional para código Python utilizando o Boto3.</p>
+        <ol>
+            <li>No VS Code, abra o arquivo <code>python_3/conditional_put.py</code> e substitua os marcadores <code>&lt;FMI&gt;</code> conforme abaixo:
+                <ul>
+                    <li><code>&lt;FMI_1&gt;</code>: <code>FoodProducts</code></li>
+                    <li><code>&lt;FMI_2&gt;</code>: <code>apple pie</code></li>
+                    <li><code>&lt;FMI_3&gt;</code>: <code>a444</code></li>
+                    <li><code>&lt;FMI_4&gt;</code>: <code>595</code> (centavos)</li>
+                    <li><code>&lt;FMI_5&gt;</code>: <code>It is amazing!</code></li>
+                    <li><code>&lt;FMI_6&gt;</code>: <code>whole pie</code></li>
+                    <li><code>&lt;FMI_7&gt;</code>: <code>apple</code></li>
+                </ul>
+            </li>
+            <li>Examine a chamada da API no script:
+<pre><code>import boto3
+from botocore.exceptions import ClientError
+
+def conditional_put():
+    DDB = boto3.client('dynamodb', region_name='us-east-1')
+    try:
+        response = DDB.put_item(
+TableName='FoodProducts',
+Item={
+    'product_name': {'S': 'apple pie'},
+    'product_id': {'S': 'a444'},
+    'price_in_cents': {'N': '595'},
+    'description': {'S': 'It is amazing!'},
+    'tags': {
+        'L': [
+            {'S': 'whole pie'},
+            {'S': 'apple'}
+        ]
+    }
+},
+ConditionExpression='attribute_not_exists(product_name)'
+        )
+        print("Done")
+    except ClientError as e:
+        print(e.response['Error']['Message'])
+
+if __name__ == '__main__':
+    conditional_put()</code></pre>
+            </li>
+            <li>Execute o script no terminal:
+<pre><code>python3 conditional_put.py
+# Saída: Done</code></pre>
+            </li>
+            <li>Teste a proteção: altere o <code>product_id</code> de <code>a444</code> para <code>a555</code> e rode o script novamente. A alteração é rejeitada pela condição. Em seguida, altere o <code>product_name</code> para <code>cherry pie</code> e execute: o novo item é inserido com sucesso.</li>
+        </ol>
+
+        <h3>Tarefa 5: Adicionar vários itens usando o SDK e o processamento em lote</h3>
+        <p>Inserir registros individualmente via chamadas únicas de rede é ineficiente para grandes volumes. Sofía explora o carregamento em lote com <code>batch_writer</code>.</p>
+        <ol>
+            <li>No console do DynamoDB, exclua todos os registros existentes na tabela <code>FoodProducts</code> (selecione todos os itens &gt; <em>Actions &gt; Delete items</em>).</li>
+            <li>Abra <code>resources/test.json</code> e note que há 6 registros de teste com duplicatas intencionais de <code>apple pie</code> com preços diferentes.</li>
+            <li>Abra <code>python_3/test_batch_put.py</code> e substitua <code>&lt;FMI_1&gt;</code> por <code>FoodProducts</code> e <code>&lt;FMI_2&gt;</code> por <code>product_name</code>.</li>
+            <li><strong>Cenário 1: Last Write Wins (Sobrescrita Silenciosa):</strong>
+                <p>Com a linha configurada como <code>table.batch_writer(overwrite_by_pkeys=['product_name'])</code>, ao executar o script:</p>
+<pre><code>python3 test_batch_put.py</code></pre>
+                <p>O DynamoDB sobrescreve as duplicatas e grava o último preço encontrado no arquivo JSON (<code>4495</code> centavos para <code>apple pie</code>).</p>
+            </li>
+            <li><strong>Cenário 2: Fail-Fast (Falhar Imediatamente para Proteger os Dados):</strong>
+                <p>A cafeteria não quer dados incorretos ou sobrescritas imprevistas. Altere a linha 12 de <code>test_batch_put.py</code> removendo o parâmetro de sobrescrita:</p>
+<pre><code>with table.batch_writer() as batch:</code></pre>
+                <p>Limpe a tabela no console e execute o script novamente. O Boto3 dispara uma exceção imediata de validação:</p>
+<pre><code>botocore.exceptions.ClientError: An error occurred (ValidationException) when calling the BatchWriteItem operation: Provided list of item keys contains duplicates</code></pre>
+                <div class="callout-dica"><strong>Vantagem do Fail-Fast:</strong> Nenhum registro é gravado parcialmente na tabela, permitindo que a equipe limpe o arquivo JSON de origem antes de efetivar a carga em produção.</div>
+            </li>
+            <li><strong>Carga de Produção Oficial:</strong>
+                <p>No VS Code, abra <code>python_3/batch_put.py</code>, substitua <code>&lt;FMI&gt;</code> por <code>FoodProducts</code> e execute o script para carregar todos os 26 produtos reais do cardápio contidos em <code>resources/website/all_products.json</code>:</p>
+<pre><code>python3 batch_put.py</code></pre>
+                <p>No console do DynamoDB, atualize a tabela e confirme que todos os <strong>26 itens</strong> foram carregados com sucesso.</p>
+            </li>
+        </ol>
+
+        <h3>Tarefa 6: Consulta à tabela usando o SDK</h3>
+        <p>Com a tabela populada, Sofía desenvolve os mecanismos de recuperação de dados: leitura total paginada via <code>scan()</code> e busca pontual via <code>get_item()</code>.</p>
+        <ol>
+            <li><strong>Recuperar Todos os Itens com Paginação Automática:</strong>
+                <p>Abra <code>python_3/get_all_items.py</code>, substitua <code>&lt;FMI_1&gt;</code> por <code>FoodProducts</code> e examine a lógica do loop <code>while</code> com <code>LastEvaluatedKey</code>:</p>
+<pre><code># Executa a primeira página da varredura
+response = table.scan()
+data = response['Items']
+
+# Se a resposta atingir o limite de 1 MB, itera pelas próximas páginas
+while response.get('LastEvaluatedKey'):
+    response = table.scan(ExclusiveStartKey=response['LastEvaluatedKey'])
+    data.extend(response['Items'])
+
+print(data)</code></pre>
+                <p>Execute o script no terminal para listar todos os 26 produtos da cafeteria:</p>
+<pre><code>python3 get_all_items.py</code></pre>
+            </li>
+            <li><strong>Recuperar um Único Registro com <code>get_item()</code>:</strong>
+                <p>Abra <code>python_3/get_one_item.py</code>, substitua <code>&lt;FMI_1&gt;</code> pela chave primária <code>product_name</code> e examine o código:</p>
+<pre><code>response = DDB.get_item(
+    TableName='FoodProducts',
+    Key={
+        'product_name': {'S': product}
+    }
+)
+data = response['Item']
+print(data)
+
+if __name__ == '__main__':
+    product = "chocolate cake"
+    get_one_item(product)</code></pre>
+                <p>Execute o script para visualizar o registro no formato nativo de tipos do DynamoDB (<code>N</code>, <code>S</code>, <code>L</code>):</p>
+<pre><code>python3 get_one_item.py
+# Saída: {'price_in_cents': {'N': '4095'}, 'description': {'S': 'chocolate heaven'}, 'product_name': {'S': 'chocolate cake'}, ...}</code></pre>
+            </li>
+        </ol>
+
+        <h3>Tarefa 7: Adição de um índice secundário global (GSI) à tabela</h3>
+        <p>Para a página inicial da cafeteria, carregar todas as 26 imagens causaria lentidão desnecessária. Frank e Martha pedem para exibir apenas os produtos do <strong>cardápio especial da semana (specials)</strong> que estão disponíveis (em estoque).</p>
+        <p>Como o atributo <code>special</code> não faz parte da chave primária, fazer um <code>Scan</code> completo filtrado consumiria muitos RCUs. A solução ideal da AWS é criar um <strong>Global Secondary Index (GSI) esparso</strong>.</p>
+        <ol>
+            <li>No VS Code, abra <code>python_3/add_gsi.py</code> e substitua <code>&lt;FMI_1&gt;</code> pelo tipo de chave: <code>HASH</code>.</li>
+            <li>Examine a estrutura da operação <code>UpdateTable</code>:
+<pre><code>params = {
+    'TableName': 'FoodProducts',
+    'AttributeDefinitions': [
+        {'AttributeName': 'special', 'AttributeType': 'N'}
+    ],
+    'GlobalSecondaryIndexUpdates': [
+        {
+'Create': {
+    'IndexName': 'special_GSI',
+    'KeySchema': [
+        {'AttributeName': 'special', 'KeyType': 'HASH'}
+    ],
+    'Projection': {
+        'ProjectionType': 'ALL' # Projeta todos os atributos na cópia do índice
+    },
+    'ProvisionedThroughput': {
+        'ReadCapacityUnits': 1,
+        'WriteCapacityUnits': 1
+    }
+}
+        }
+    ]
+}
+table = DDB.update_table(**params)
+print("DONE")</code></pre>
+                <div class="callout-dica"><strong>Índice Esparso (Sparse Index):</strong> Apenas os itens que possuem o atributo numérico <code>special</code> serão indexados no <code>special_GSI</code>. Itens comuns sem esse atributo são ignorados, resultando em um índice muito menor, mais rápido e econômico de ler.</div>
+            </li>
+            <li>No terminal, execute o script para iniciar o provisionamento do GSI:
+<pre><code>python3 add_gsi.py</code></pre>
+            </li>
+            <li>No console do DynamoDB, vá na aba <strong>Indexes (Índices)</strong> da tabela <code>FoodProducts</code> e aguarde o status do índice mudar de <em>Creating (Criando)</em> para <strong>Active (Ativo)</strong>.</li>
+            <li><strong>Consulta Otimizada no GSI com Filtro de Estoque:</strong>
+                <p>Abra <code>python_3/scan_with_filter.py</code> e substitua <code>&lt;FMI_1&gt;</code> por <code>special_GSI</code> e <code>&lt;FMI_2&gt;</code> por <code>tags</code>:</p>
+<pre><code># Realiza a varredura restrita ao índice esparso e filtra itens fora de estoque
+response = table.scan(
+    IndexName='special_GSI',
+    FilterExpression=Not(Attr('tags').contains('out of stock'))
+)
+data = response['Items']
+print(data)</code></pre>
+                <div class="callout-dica"><strong>FilterExpression vs ScanFilter:</strong> O parâmetro <code>ScanFilter</code> é legado. No Boto3 moderno, utiliza-se <code>FilterExpression</code> com os utilitários de construção de condição <code>Attr()</code> e a função <code>Not()</code>.</div>
+            </li>
+            <li>Execute o script:
+<pre><code>python3 scan_with_filter.py</code></pre>
+                <p>A saída trará exatamente os 5 produtos especiais da cafeteria que estão disponíveis para oferta imediata na página inicial.</p>
+            </li>
+        </ol>
+
+        <h3>Atualização da cafeteria</h3>
+        <p>Sofía atendeu a todos os requisitos comerciais de back-end: os produtos do cardápio estão persistidos de maneira segura no Amazon DynamoDB, as inserções são protegidas contra sobrescritas, a carga em lote foi concluída com validação estrita e as consultas para a home page foram otimizadas usando um GSI esparso.</p>
+        <p>No próximo módulo (<strong>Módulo 6: Developing REST APIs</strong>), Sofía começará a construir a API REST com Amazon API Gateway e AWS Lambda para conectar o front-end do site diretamente a esta base do DynamoDB.</p>
+    </div>
+</section>

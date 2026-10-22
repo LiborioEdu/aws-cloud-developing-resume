@@ -1,0 +1,226 @@
+<span class="anchor" id="modulo-2"></span>
+<section data-module-id="modulo-2">
+    <h1>2. Introducing to Developing on AWS</h1>
+    
+    <span class="anchor-h2" id="mod2-intro"></span>
+    <h2>1. Systems development lifecycle</h2>
+    
+    <h4>O principal desafio das empresas hoje é equilibrar a estabilidade de suas operações com a necessidade de lançar novas funcionalidades rapidamente. Para isso, o software precisa ser entregue de forma rápida (quickly), segura (securely) e confiável (reliably).</h4>
+    
+    <h4>Para gerenciar esse desafio, utilizamos o <strong>SDLC (Systems Development Lifecycle)</strong>, um modelo que divide o projeto em seis etapas: Planejar (Plan), Definir (Define), Projetar (Design), Desenvolver (Develop), Implantar (Deploy) e Manter (Maintain). O foco principal deste curso da AWS será nas fases de Desenvolvimento e Implantação.</h4>
+
+    <h3>Metodologias de SDLC: Cascata vs. Ágil</h3>
+    <h4>Existem diferentes formas de aplicar o ciclo de vida. As duas principais abordagens são:</h4>
+    
+    <div class="image-container">
+        <img src="img/waterfall_vs_agile.png" loading="lazy" alt="Waterfall vs Agile">
+    </div>
+    
+    <h4><strong>Cascata (Waterfall):</strong> É o método tradicional e sequencial. Cada fase precisa ser totalmente concluída antes que a próxima comece. O grande problema aqui é a lentidão: a equipe pode passar meses sem receber nenhum feedback do cliente até que o produto final seja lançado.</h4>
+    
+    <h4><strong>Ágil (Agile):</strong> É a abordagem moderna e iterativa. O foco é lançar versões menores do produto o mais rápido possível para coletar feedback e melhorar nas próximas versões. O trabalho é dividido em ciclos curtos chamados Sprints, que duram de 1 a 4 semanas. Desenvolver na AWS facilita muito a adoção do modelo Ágil, pois a nuvem permite adaptação rápida a mudanças.</h4>
+    
+    <h3>As 5 Grandes Fases do Desenvolvimento de Software</h3>
+    <h4>Dentro do ciclo de desenvolvimento, o código passa por cinco fases principais. Cada etapa serve para aumentar a confiança de que o sistema vai funcionar corretamente quando chegar ao usuário final:</h4>
+    
+    <ul>
+        <li><strong>Codificar (Code):</strong> Os desenvolvedores escrevem o código, salvam em um repositório (como o Git) e fazem revisões em equipe (peer-review) para garantir a qualidade.</li>
+        <li><strong>Construir (Build):</strong> O código é compilado e testado automaticamente por máquinas. Aqui rodam os testes mais simples (testes de unidade) e verificações de estilo de código.</li>
+        <li><strong>Testar (Test):</strong> O sistema é levado para um ambiente parecido com o real (pré-produção). Aqui acontecem testes mais pesados, como integração com outros sistemas, testes de carga (para ver se aguenta muitos acessos) e testes de segurança (penetration tests).</li>
+        <li><strong>Implantar (Deploy):</strong> O código é finalmente liberado para o ambiente de produção (onde os clientes reais vão usar). O objetivo aqui é fazer isso com o menor risco possível.</li>
+        <li><strong>Manter (Maintain):</strong> O sistema em produção passa a ser monitorado constantemente para detectar atividades incomuns, erros ou lentidão rapidamente.</li>
+    </ul>
+
+    <span class="anchor-h2" id="mod2-step"></span>
+    <h2>2. Step to get started developing on AWS</h2>
+    
+    <h4>A interação com os serviços da AWS é baseada em uma API (estilo REST) e pode ser executada de quatro formas integradas. Você pode, por exemplo, criar um servidor via código e depois excluí-lo pela interface gráfica.</h4>
+
+    <ul>
+        <li><strong>Chamadas Diretas:</strong> Uso puro da API dos serviços.</li>
+        <li><strong>AWS Management Console:</strong> A interface gráfica acessada pelo navegador.</li>
+        <li><strong>AWS Command Line Interface (AWS CLI):</strong> Gerenciamento da nuvem por meio de comandos no terminal do seu sistema operacional.</li>
+        <li><strong>AWS SDKs (Kits de Desenvolvimento):</strong> Bibliotecas embutidas no seu código para controlar recursos da AWS usando linguagens de programação populares.</li>
+    </ul>
+
+    <h3>Ferramentas de Linha de Comando e Desenvolvimento</h3>
+    
+    <ul>
+        <li><strong>AWS CLI:</strong> Ferramenta de código aberto e multiplataforma. A estrutura padrão de uso é sempre <code>aws &lt;serviço&gt; &lt;operação&gt; [parâmetros]</code>.<br>Exemplo: <code>aws ec2 stop-instances --instance-id i-123</code>.</li>
+    </ul>
+
+    <div class="image-container">
+        <img src="img/aws_cli_format.png" loading="lazy" alt="AWS CLI Command line format">
+    </div>
+
+    <ul>
+        <li><strong>AWS Tools for PowerShell:</strong> Módulos específicos para gerenciar a AWS usando o ecossistema e scripts do Windows PowerShell.</li>
+        <li><strong>AWS SAM Local:</strong> Focado no desenvolvimento e teste local de aplicações serverless (sem servidor).</li>
+        <li><strong>AWS Amplify:</strong> Framework voltado para criação e gerenciamento rápido de backends para aplicativos web e mobile (iOS, Android, React Native).</li>
+    </ul>
+
+    <h3>AWS CloudShell</h3>
+    <h4>É um ambiente de terminal executado diretamente no seu navegador, acessado por dentro do AWS Console, que simplifica a execução de comandos:</h4>
+
+    <ul>
+        <li><strong>Zero configuração:</strong> Já utiliza as credenciais do seu usuário logado (pré-autenticado) e não exige instalação de chaves de acesso.</li>
+        <li><strong>Pronto para uso:</strong> O ambiente (baseado em Amazon Linux 2) já vem com o AWS CLI, SDKs e outras ferramentas pré-instaladas.</li>
+        <li><strong>Custo e Armazenamento:</strong> É gratuito e oferece 1 GB de armazenamento persistente por Região para você salvar seus scripts e arquivos de configuração.</li>
+    </ul>
+
+    <h3>Rodando a AWS localmente (Estudo)</h3>
+    <h4>Por questão de estudo, vou rodar a AWS localhost em um docker.</h4>
+
+    <pre><code># Ativa o docker
+docker run --rm -it -p 5000:5000 motoserver/moto
+
+# Abrir outro terminal e agora você pode criar recursos e testar os serviços.
+# A única regra de ouro da sua rotina é que todo comando precisa indicar o endereço do servidor local.
+aws --endpoint-url=http://localhost:5000 s3 ls
+
+# Ver se foi
+aws --version
+
+# Configurar credenciais
+aws configure
+AWS Access Key ID: test
+AWS Secret Access Key: test
+Default region name: us-east-1
+Default output format: json</code></pre>
+
+
+    <span class="anchor-h2" id="mod2-sdk"></span>
+    <h2>3. Desenvolvendo com AWS SDKs</h2>
+    
+    <h4>Quando você usa um SDK, o fluxo é simples: sua aplicação faz um comando, o SDK transforma isso em uma requisição HTTP(S) e a envia para o Endpoint (a URL que serve como porta de entrada do serviço na AWS). O serviço processa e o SDK devolve a resposta traduzida para o seu código.</h4>
+
+    <h4>Para interagir com os serviços, os SDKs oferecem dois níveis de abstração:</h4>
+    <ul>
+        <li><strong>API de Cliente (Service Client API):</strong> É a interface de baixo nível. Existe um método exato para cada operação da API da AWS (mapeamento 1 para 1). Oferece controle total sobre a requisição. Exemplo no Python (Boto3): <code>boto3.client('s3')</code>.</li>
+        <li><strong>API de Recurso (Resource API):</strong> É a interface de alto nível e orientada a objetos. Em vez de lidar com os detalhes brutos da requisição, você interage com abstrações mais lógicas (como um "Bucket" ou um "Objeto"). Nem todos os SDKs possuem essa API, mas ela deixa o código mais limpo. Exemplo: <code>boto3.resource('s3')</code>.</li>
+    </ul>
+
+    <h3>Definindo Regiões (Specifying Regions)</h3>
+    <h4>A infraestrutura da AWS é global. Ao usar o SDK, você precisa informar em qual região seu código vai atuar. Isso geralmente é feito de duas formas:</h4>
+    <ul>
+        <li><strong>No código:</strong> Passando a região como parâmetro na hora de criar o cliente (ex: <code>region_name='us-east-1'</code>).</li>
+        <li><strong>Via arquivo:</strong> Definindo uma região padrão no arquivo de configuração local do seu computador (<code>~/.aws/config</code>).</li>
+    </ul>
+
+    <h3>Tratamento de Erros (Handling Exceptions)</h3>
+    <h4>Toda chamada para a API retorna um código de status HTTP. Se for da série 200, deu tudo certo. Se der erro, você recebe um XML detalhado (com Código, Mensagem, Recurso e RequestID). Você deve reagir aos erros de duas maneiras:</h4>
+    <ul>
+        <li><strong>Série 400 (Erro do Cliente):</strong> A culpa foi da sua requisição (ex: tentou acessar um recurso que não existe ou sem permissão). Você precisa tratar o erro no seu código.</li>
+        <li><strong>Série 500 (Erro do Servidor):</strong> Falha interna da AWS. A solução é tentar novamente (retry).</li>
+    </ul>
+
+    <div class="callout-dica">
+        <p><strong>Dica de Prova (Exponential Backoff):</strong> Os SDKs já fazem retries automáticos para erros 500 usando um algoritmo de espera exponencial. Isso significa que, se a primeira tentativa falhar, ele espera uma fração de segundo. Se falhar de novo, espera mais tempo, aumentando o intervalo progressivamente para não sobrecarregar a rede.</p>
+    </div>
+
+
+    <span class="anchor-h2" id="mod2-lab"></span>
+    <h2>4. Lab 2.1: Exploring AWS CloudShell and IDE</h2>
+
+    <h3>Visão geral e objetivos do laboratório</h3>
+    <h4>Neste laboratório, você desempenhará o papel de Sofía. Você estabelecerá conexão com um ambiente do AWS CloudShell e examinará seus recursos. Você também se conectará ao Visual Studio Code Integrated Development Environment (VS Code IDE) e explorará o layout e sua funcionalidade.</h4>
+    <h4>Depois de concluir o laboratório, você será capaz de:</h4>
+    <ul>
+        <li>Estabelecer conexão com o AWS CloudShell e executar comandos da AWS Command Line Interface (AWS CLI) e o código do SDK da AWS por meio dela.</li>
+        <li>Conectar-se ao VS Code IDE e explorar sua funcionalidade.</li>
+        <li>Copiar arquivos do e para o Amazon Simple Storage Service (Amazon S3), o CloudShell e o VS Code IDE.</li>
+        <li>Instalar o AWS SDK para Python (Boto3) em uma instância do VS Code IDE.</li>
+        <li>Usar o VS Code IDE para criar e executar arquivos de código.</li>
+    </ul>
+
+    <h3>Restrições de serviço AWS</h3>
+    <h4>Neste ambiente de laboratório, o acesso aos serviços e às ações de serviços da AWS pode ser restrito ao necessário para concluir as instruções do laboratório. É possível encontrar erros ao tentar acessar outros serviços ou executar ações além das descritas neste laboratório.</h4>
+
+    <h3>Cenário</h3>
+    <h4>Frank e Martha são casados e proprietários de uma pequena cafeteria que vende sobremesas e café. A filha deles, Sofía, trabalha na cafeteria. Sofía está cursando computação em nuvem em uma universidade local à noite e nos fins de semana. Ela tem habilidades de desenvolvimento em Python e está aprendendo mais sobre como desenvolver soluções na nuvem.</h4>
+    <h4>Sofía está ansiosa para começar a desenvolver um espaço digital para a cafeteria. Ela acha que antes de começar a codificar, seria uma boa ideia decidir sobre um ambiente de desenvolvimento para desenvolver e executar o código. Ela decide examinar pelo menos duas opções que estão disponíveis na AWS.</h4>
+
+    <h3>Acesso ao Console de Gerenciamento da AWS</h3>
+    <ul>
+        <li>No início destas instruções, clique em Start Lab (Iniciar laboratório) para iniciar o laboratório.</li>
+        <li>Aguarde a mensagem Lab status: ready (Status do laboratório: pronto) ser exibida e, depois, feche o painel Start Lab clicando em X.</li>
+        <li>No início destas instruções, selecione AWS. O Console de Gerenciamento da AWS abrirá em uma nova guia do navegador. O sistema fará o login automaticamente.</li>
+    </ul>
+    <div class="callout-dica">
+        <p><strong>Dica:</strong> Se você precisar de mais tempo para concluir o laboratório, selecione novamente o botão Start Lab para reiniciar o cronômetro do ambiente. De preferência, deixe as duas guias do navegador abertas para acompanhar mais facilmente as etapas do laboratório.</p>
+    </div>
+
+    <h3>Tarefa 1: Exploração do AWS CloudShell</h3>
+    <h4>O AWS CloudShell é um shell pré-autenticado e baseado em navegador que você pode iniciar diretamente no Console de Gerenciamento da AWS. Nesta primeira tarefa, você estabelecerá conexão com o CloudShell e explorará seus recursos.</h4>
+    
+    <ul>
+        <li>No Console de Gerenciamento da AWS, na parte superior da tela, selecione o ícone <strong>AWS CloudShell</strong>.</li>
+        <li>No prompt do CloudShell, verifique se a AWS CLI está instalada:</li>
+    </ul>
+    <pre><code>aws --version</code></pre>
+
+    <ul>
+        <li>Teste a capacidade de executar um comando simples da AWS CLI:</li>
+    </ul>
+    <pre><code>aws s3 ls</code></pre>
+
+    <ul>
+        <li>No menu Actions (Ações), selecione <strong>Tabs layout &gt; Split into columns</strong>. Uma segunda janela do terminal é aberta demonstrando que você pode ter vários painéis.</li>
+        <li>Baixe o arquivo <code>list-buckets.py</code>. No menu Actions (Ações), selecione <strong>Files &gt; Upload file</strong> e faça o upload do arquivo para o terminal.</li>
+        <li>No terminal do lado direito, visualize o arquivo carregado:</li>
+    </ul>
+    <pre><code>cat list-buckets.py
+
+# A saída mostra o conteúdo:
+import boto3
+session = boto3.Session()
+s3_client = session.client('s3')
+b = s3_client.list_buckets()
+for item in b['Buckets']:
+    print(item['Name'])</code></pre>
+
+    <ul>
+        <li>Execute o código do SDK for Python:</li>
+    </ul>
+    <pre><code>python3 list-buckets.py</code></pre>
+
+    <ul>
+        <li>Para copiar o arquivo <code>list-buckets.py</code> para o seu bucket S3, execute o seguinte comando:</li>
+    </ul>
+    <pre><code>aws s3 cp list-buckets.py s3://&lt;bucket-name&gt;</code></pre>
+
+    <div class="callout-dica">
+        <p><strong>Nota:</strong> Ao usar o AWS CloudShell, você tem armazenamento persistente de 1 GB para cada região AWS sem custo adicional. Os dados no diretório inicial ($HOME) persistem entre as sessões.</p>
+    </div>
+
+    <h3>Tarefa 2: Exploração do VS Code IDE</h3>
+    <h4>Nesta tarefa, você se conectará ao VS Code IDE e aprenderá a usá-lo. Você também interagirá com o Amazon S3 por meio do VS Code IDE.</h4>
+
+    <ul>
+        <li>Na parte superior destas instruções, selecione <strong>Details &gt; AWS: Show</strong>. Copie os valores <code>LabIDEURL</code> e <code>LabIDEPassword</code>.</li>
+        <li>Em uma nova guia do navegador, cole o valor de LabIDEURL para abrir o VS Code IDE.</li>
+        <li>Insira a senha e observe a interface (terminal Bash na parte inferior, painel de navegação na lateral). Esse ambiente é executado em uma instância do Amazon EC2.</li>
+        <li>No terminal Bash, obtenha o nome do seu bucket executando: <code>aws s3 ls</code></li>
+        <li>Baixe o arquivo <code>list-buckets.py</code> do S3 para o IDE (não esqueça o ponto no final):</li>
+    </ul>
+    <pre><code>aws s3 cp s3://&lt;bucket-name&gt;/list-buckets.py .</code></pre>
+    
+    <ul>
+        <li>O Python 3 já está instalado, mas as bibliotecas do SDK (Boto3) não. Se você tentar rodar o código, dará o erro <em>ModuleNotFoundError</em>. Instale o Boto3:</li>
+    </ul>
+    <pre><code>sudo pip3 install boto3</code></pre>
+
+    <ul>
+        <li>Execute o código novamente e desta vez ele funcionará:</li>
+    </ul>
+    <pre><code>python3 list-buckets.py</code></pre>
+
+    <ul>
+        <li>Crie um novo arquivo html (File &gt; New Text File), adicione o texto <code>&lt;body&gt; Hello World. &lt;/body&gt;</code>, e salve como <code>index.html</code>.</li>
+        <li>Faça o upload do arquivo para o bucket do S3:</li>
+    </ul>
+    <pre><code>aws s3 cp index.html s3://&lt;bucket-name&gt;/index.html</code></pre>
+
+    <h3>Atualização da cafeteria</h3>
+    <h4>Sofía está contente por ter identificado um IDE com os recursos necessários para desenvolver o site da cafeteria (editor visual, navegador de arquivos, terminal). O CloudShell também foi muito útil para tarefas rápidas diretamente pelo Console, sem precisar ligar um EC2. No próximo laboratório, Sofía usará o VS Code IDE para concretizar seus objetivos de desenvolvimento.</h4>
+</section>

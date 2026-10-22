@@ -1,0 +1,398 @@
+<span class="anchor" id="modulo-3"></span>
+<section data-module-id="modulo-3">
+    <h1>3. Developing Storage Solutions</h1>
+    
+    <span class="anchor-h2" id="mod3-intro"></span>
+    <h2>1. Introduction</h2>
+
+    <h4>O foco absoluto deste módulo é dominar o Amazon S3 (Simple Storage Service), um dos serviços mais essenciais e cobrados da AWS.</h4>
+
+    <ul>
+        <li><strong>Objetivos de Aprendizado:</strong> O módulo vai te ensinar a criar buckets (contêineres de armazenamento), gerenciar objetos (arquivos), proteger seus dados, controlar quem tem acesso a eles e, principalmente, como executar todas essas operações via código utilizando os AWS SDKs.</li>
+        <li><strong>O Caso da Cafeteria (Cenário Prático):</strong> A desenvolvedora (Sofía) já configurou o ambiente de desenvolvimento e precisa criar um site de "prova de conceito" (proof-of-concept) para mostrar aos donos da cafeteria. O grande requisito de negócio aqui é a privacidade: o site deve ser criado, mas não pode ser exposto ao mundo externo ainda.</li>
+        <li><strong>O Papel do S3 na Aplicação:</strong> Para atender a esse cenário, você aprenderá a usar o S3 para hospedagem de site estático (static website hosting). Para garantir a segurança e impedir que o público veja o site antes da hora, você aplicará uma Política de Bucket (bucket policy), que é uma regra de segurança configurada no S3 para limitar de onde os acessos podem vir.</li>
+    </ul>
+
+    <div class="image-container">
+        <img src="img/s3_architecture.png" loading="lazy" alt="Amazon S3 as part of developing a cloud application">
+    </div>
+    <span class="anchor-h2" id="mod3-s3"></span>
+    <h2>2. Introducing Amazon S3</h2>
+
+    <h4>O Amazon S3 é o núcleo de armazenamento da AWS e um dos serviços mais cobrados em exames. Ele não opera como um disco rígido tradicional, mas sim como um serviço de armazenamento de objetos.</h4>
+
+    <h3>Principais Características do S3</h3>
+    <ul>
+        <li><strong>Durabilidade extrema (11 noves):</strong> Projetado para 99,999999999% de durabilidade. Estatisticamente, se você armazenar 10 milhões de objetos, perderia apenas um a cada 10.000 anos.</li>
+        <li><strong>Orientado a eventos:</strong> O S3 pode disparar ações automaticamente (notificando serviços como AWS Lambda, SNS ou SQS) sempre que um arquivo for criado, deletado ou restaurado.</li>
+    </ul>
+
+    <h3>Principais Casos de Uso</h3>
+    <ul>
+        <li><strong>Hospedagem de site estático:</strong> Excelente para arquivos HTML, CSS e JavaScript (rodados no cliente). Atenção: O S3 não suporta processamento no lado do servidor (como PHP, Java ou ASP.NET).</li>
+        <li><strong>Armazenamento e Distribuição:</strong> Guardar mídias e distribuí-las diretamente ou acelerar a entrega usando o Amazon CloudFront.</li>
+        <li><strong>Backup e Arquivamento:</strong> Integração de ciclo de vida com o Amazon S3 Glacier para arquivar dados acessados raramente.</li>
+        <li><strong>Data Lakes e Big Data:</strong> Repositório central para analisar volumes massivos de dados estruturados e não estruturados.</li>
+        <li><strong>Recuperação de Desastres (DR):</strong> Uso da Replicação entre Regiões (CRR) para copiar dados automaticamente para outras áreas geográficas como medida de segurança.</li>
+    </ul>
+
+    <h3>Os Três Componentes Essenciais</h3>
+    <ul>
+        <li><strong>Bucket:</strong> É o contêiner principal. Eles são Regionais (os dados nunca saem da região onde o bucket foi criado, a não ser que você configure uma transferência explícita). O bucket organiza os arquivos e centraliza o controle de acesso e os custos.</li>
+        <li><strong>Object (Objeto):</strong> É o dado fundamental armazenado. Consiste no arquivo em si (foto, vídeo, documento) somado aos seus metadados (informações que descrevem o arquivo).</li>
+        <li><strong>Key (Chave):</strong> É o identificador único do objeto dentro do bucket. Você pode pensar nela como o nome e o caminho do arquivo (ex: documentos/preview.mp4).</li>
+    </ul>
+
+    <h4>Ao juntar tudo isso, cada objeto ganha um endereço de URL único e estruturado:</h4>
+    <pre><code>https://s3-&lt;aws-region&gt;.amazonaws.com/&lt;bucket-name&gt;/&lt;object-key&gt;</code></pre>
+
+    <span class="anchor-h2" id="mod3-s3-create"></span>
+    <h2>3. Creating S3 Bucket</h2>
+
+    <h3>Nomenclatura de Buckets</h3>
+    <h4>O nome do seu bucket deve ser globalmente único em toda a AWS, independentemente de quem o criou. Se alguém no Japão usar um nome, você não poderá usá-lo no Brasil. Além disso, as regras são estritas:</h4>
+    <ul>
+        <li>Deve ter entre 3 e 63 caracteres.</li>
+        <li>Apenas letras minúsculas, números e hifens (-).</li>
+        <li>Proibido: Letras maiúsculas e underlines (_).</li>
+        <li><strong>Atenção:</strong> O nome não pode ser alterado após a criação.</li>
+    </ul>
+
+    <h3>Escolha da Região</h3>
+    <h4>Ao criar o bucket, você define em qual região física ele existirá. Essa decisão é baseada em três fatores: Latência (proximidade com o usuário final), Custo e Requisitos Regulatórios (leis de onde os dados podem ser armazenados). A região também não pode ser alterada depois.</h4>
+
+    <h3>Acessando Buckets (URLs)</h3>
+    <h4>O S3 utiliza URLs no estilo Virtual-host, onde o nome do bucket faz parte do domínio principal.</h4>
+    <ul>
+        <li><strong>Padrão:</strong> 
+            <pre><code>http://&lt;nome-do-bucket&gt;.s3-&lt;região&gt;.amazonaws.com/&lt;chave-do-objeto&gt;</code></pre>
+        </li>
+        <li><strong>Site Estático:</strong> Quando o bucket é configurado para hospedar um site, a URL muda ligeiramente para incluir a palavra website (ex: ...s3-website-us-east-1...).</li>
+    </ul>
+
+    <h3>Estrutura de Pastas (Prefixos)</h3>
+    <h4>O S3 é um armazenamento plano, ou seja, não existem pastas reais. Para simular uma estrutura de diretórios, o S3 usa Prefixos (Prefixes). Quando você vê um arquivo em <code>2021/matematica/notas.txt</code>, o S3 entende que o nome completo (a chave) do arquivo é todo esse caminho. O uso da barra (<code>/</code>) apenas cria a ilusão de pastas para organizar e facilitar a filtragem dos arquivos via código.</h4>
+
+    <div class="image-container">
+        <img src="img/s3_prefixes.png" loading="lazy" alt="Creating folder structure in buckets: Using prefixes">
+    </div>
+
+    <span class="anchor-h2" id="mod3-s3-objects"></span>
+    <h2>4. Working with S3 objects</h2>
+
+    <h4>Todo objeto no S3 é formado pelos dados (o arquivo em si) e pelos metadados (informações sobre o arquivo). Os metadados se dividem em dois tipos:</h4>
+    <ul>
+        <li><strong>Definidos pelo Sistema:</strong> O próprio S3 gerencia. Alguns você não pode mudar (como data de criação e tamanho), outros você pode (como classe de armazenamento e criptografia).</li>
+        <li><strong>Definidos pelo Usuário:</strong> Informações personalizadas que você mesmo atrela ao arquivo. Elas obrigatoriamente precisam começar com o prefixo <code>x-amz-meta-</code> (ex: <code>x-amz-meta-nome-alternativo</code>).</li>
+    </ul>
+
+    <h3>Operações Básicas: PUT, GET e DELETE</h3>
+    <h4>Para interagir com os objetos via API/Código, utilizamos três operações principais:</h4>
+    
+    <ul>
+        <li><strong>1. PUT (Enviar/Fazer Upload):</strong> Faz o upload do objeto inteiro para o bucket.
+            <ul>
+                <li><strong>Limites:</strong> O tamanho máximo de um objeto no S3 é de 5 TB.</li>
+                <li><strong>Upload Simples:</strong> Usado para arquivos de até 5 GB.</li>
+                <li><strong>Multipart Upload (Upload em Partes):</strong> O arquivo é quebrado em pedaços enviados em paralelo. É recomendado para arquivos maiores que 100 MB e obrigatório para arquivos maiores que 5 GB. Se a rede cair, ele retoma de onde parou.</li>
+            </ul>
+        </li>
+        <li><strong>2. GET (Baixar/Ler):</strong> Recupera o objeto. Você pode baixar o arquivo inteiro de uma vez ou pedir apenas um intervalo de bytes (uma parte específica do arquivo), o que é ótimo para redes lentas.</li>
+        <li><strong>3. DELETE (Excluir) e a Mágica do Versionamento:</strong> A forma como a exclusão funciona muda completamente dependendo se o Versionamento (Versioning) está ativado ou não no seu bucket.</li>
+    </ul>
+
+    <div class="callout-dica">
+        <strong>O que é o Versionamento?</strong> É um recurso de segurança que guarda o histórico de todas as modificações de um arquivo. Se você enviar um arquivo com o mesmo nome, em vez de sobrescrever e perder o antigo, o S3 empilha as versões (cada uma ganha um Version ID). <strong>Atenção:</strong> Uma vez ativado no bucket, o versionamento só pode ser suspenso, mas nunca totalmente desativado.
+    </div>
+
+    <ul>
+        <li><strong>DELETE sem versionamento:</strong> O arquivo é apagado permanentemente. Fim da linha.</li>
+        <li><strong>DELETE com versionamento:</strong> Se você mandar apagar um arquivo sem especificar qual versão, o S3 não apaga o arquivo. Ele apenas coloca um "Marcador de Exclusão" (Delete Marker) no topo da pilha. Se alguém tentar acessar, vai receber um erro 404 (Não Encontrado), mas o arquivo original continua seguro nas versões anteriores. Para apagar permanentemente, você precisa rodar o comando DELETE informando o Version ID exato.</li>
+    </ul>
+
+    <div class="image-container">
+        <img src="img/s3_objects.png" loading="lazy" alt="DELETE object: Versioning enabled">
+    </div>
+
+    <span class="anchor-h2" id="mod3-s3-protecting"></span>
+    <h2>5. Protecting data and managing access to Amazon S3 resources</h2>
+
+    <h3>Criptografia de Dados (Data Encryption)</h3>
+    <h4>A proteção dos seus dados ocorre em dois momentos distintos:</h4>
+    <ul>
+        <li><strong>Em trânsito (In transit):</strong> Quando o dado viaja da sua rede para a AWS. É protegido nativamente por SSL/TLS (HTTPS).</li>
+        <li><strong>Em repouso (At rest):</strong> Quando o dado já está salvo fisicamente nos discos da AWS. O S3 oferece três opções principais de criptografia no lado do servidor (Server-side Encryption - SSE):
+            <ul>
+                <li><strong>SSE-S3:</strong> A própria Amazon cria e gerencia as chaves (usando o padrão AES-256). É a opção mais transparente e simples.</li>
+                <li><strong>SSE-KMS:</strong> Usa o serviço gerenciador de chaves da AWS (Key Management Service). A grande vantagem aqui é a auditoria; você consegue ver exatamente quem usou a chave e quando.</li>
+                <li><strong>SSE-C (Customer):</strong> Você, o cliente, cria e fornece sua própria chave. A AWS só usa a sua chave para embaralhar o arquivo na hora de salvar e desembaralhar na hora de ler, mas não guarda a chave.</li>
+            </ul>
+        </li>
+    </ul>
+
+    <div class="callout-dica">
+        <strong>Regra de ouro:</strong> Ativar a criptografia em um bucket não criptografa retroativamente os objetos que já estavam lá. A regra só se aplica aos novos arquivos enviados a partir daquele momento.
+    </div>
+
+    <h3>Gerenciamento de Acesso (Access Management)</h3>
+    <h4>Por padrão, absolutamente tudo no S3 (buckets e objetos) nasce privado. Para liberar acesso, você utiliza políticas:</h4>
+    <ul>
+        <li><strong>Políticas Baseadas em Identidade (Identity-based):</strong> São criadas no serviço IAM e anexadas a usuários ou grupos (ex: "O usuário da Sofía tem permissão total no S3").</li>
+        <li><strong>Políticas Baseadas em Recurso (Resource-based):</strong> São anexadas diretamente ao bucket ou ao arquivo. Dividem-se em duas:
+            <ul>
+                <li><strong>ACLs (Listas de Controle de Acesso):</strong> Mais antigas e aplicadas nível a nível (no bucket ou em arquivos individuais). São muito usadas quando o dono do bucket é uma conta da AWS diferente da conta que fez o upload do arquivo.</li>
+                <li><strong>Políticas de Bucket (Bucket Policies):</strong> Escritas em formato JSON e aplicadas ao bucket inteiro. Elas são muito granulares. Para a cafeteria hospedar o site, é aqui que você criará uma regra permitindo leitura pública anônima para a internet inteira.</li>
+            </ul>
+        </li>
+    </ul>
+
+    <h3>URLs Pré-assinadas (Presigned URLs)</h3>
+    <h4>São links temporários (com validade máxima de 1 semana) que você gera para permitir que alguém sem conta na AWS faça download (GET) ou upload (PUT) de um arquivo específico. Quem clica no link "pega emprestada" a permissão de quem gerou a URL apenas para aquela ação.</h4>
+
+    <h3>CORS (Cross-Origin Resource Sharing)</h3>
+    <h4>É um mecanismo de segurança de navegadores web. Se o seu site roda em (https://www.site-da-cafeteria.com) e tenta carregar imagens direto de um bucket S3 em outro domínio (bucket.s3.amazonaws.com), o navegador bloqueia a ação. Você precisa configurar uma regra de CORS no seu S3 liberando explicitamente o seu site para puxar esses recursos.</h4>
+
+    <span class="anchor-h2" id="mod3-lab"></span>
+    <div class="lab-section">
+        <h2>Lab 3.1: Working with Amazon S3</h2>
+
+        <h3>Visão geral e objetivos do laboratório</h3>
+        <p>Neste laboratório, você usará o Amazon Simple Storage Service (Amazon S3) para hospedar um site estático. Você também implementará as práticas recomendadas de arquitetura para proteger e gerenciar os dados.</p>
+        <p>Depois de concluir este laboratório, você deverá ser capaz de:</p>
+        <ul>
+            <li>Criar um site estático no Amazon S3.</li>
+            <li>Aplicar uma política de bucket em um bucket do S3 para configurar a proteção de dados personalizada.</li>
+            <li>Fazer upload de objetos para um bucket do S3 usando o AWS SDK para Python (Boto3).</li>
+            <li>Configurar o site hospedado no Amazon S3 para que seja acessado apenas por um intervalo de endereços IP específico e testar a configuração.</li>
+        </ul>
+
+        <h3>Duração</h3>
+        <p>A duração deste laboratório é de aproximadamente 60 minutos.</p>
+
+        <h3>Restrições de serviço AWS</h3>
+        <p>Neste ambiente de laboratório, o acesso aos serviços e às ações de serviços da AWS pode ser restrito ao necessário para concluir as instruções do laboratório. Você poderá encontrar erros se tentar acessar outros serviços ou executar ações além das descritas neste laboratório.</p>
+
+        <h3>Cenário</h3>
+        <p>Sofía está ansiosa para começar a criar um site para a cafeteria. Ela tem algumas habilidades de desenvolvimento em Python e está aprendendo mais sobre como desenvolver soluções na nuvem. Nikhil é estudante do ensino médio e também trabalha na cafeteria. Ele tem algumas habilidades em design gráfico e muito interesse em aprender sobre computação em nuvem.</p>
+        <p>A cafeteria tem uma única unidade em uma cidade grande. Ela recebe novos clientes principalmente quando alguém passa em frente e, ao notar a cafeteria, decide conhecê-la. A cafeteria é reconhecida por seus doces e cafés de alta qualidade, mas sua reputação está limitada às pessoas que já visitaram o local ou que ouviram outros clientes falarem dela.</p>
+        <p>Sofía sugere a Frank e Martha (seus pais e proprietários da cafeteria) que eles ampliem a visibilidade dos produtos que a cafeteria oferece na comunidade. A cafeteria ainda não tem um espaço digital e não usa nenhum serviço de computação em nuvem atualmente. No entanto, isso está prestes a mudar.</p>
+        <p>Neste laboratório, você desempenhará o papel de Sofía e realizará as primeiras etapas necessárias para criar um site para a cafeteria. Vamos começar.</p>
+
+        <h3>Acesso ao Console de Gerenciamento da AWS</h3>
+        <ul>
+            <li>No início destas instruções, clique em <strong>Start Lab (Iniciar laboratório)</strong> para iniciar o laboratório.</li>
+            <li>Um painel Start Lab (Iniciar laboratório) é aberto com o status do laboratório.</li>
+            <div class="callout-dica"><strong>Dica:</strong> se você precisar de mais tempo para concluir o laboratório, selecione novamente o botão Start Lab (Iniciar laboratório) para reiniciar o cronômetro do ambiente.</div>
+            <li>Aguarde a mensagem <strong>Lab status: ready (Status do laboratório: pronto)</strong> ser exibida e, depois, feche o painel Start Lab (Iniciar laboratório) clicando em X.</li>
+            <li>No início destas instruções, selecione <strong>AWS</strong>.</li>
+            <li>O Console de Gerenciamento da AWS abrirá em uma nova guia do navegador. O sistema fará o login automaticamente.</li>
+            <div class="callout-dica"><strong>Dica:</strong> se uma nova guia não for aberta, você verá um banner ou um ícone na parte superior do navegador com uma mensagem informando que o programa está impedindo que o site abra janelas pop-up. Clique no banner ou no ícone e selecione Allow pop ups (Permitir pop-ups).</div>
+            <li>Organize a guia do console de gerenciamento da AWS para que ela seja exibida com essas instruções. De preferência, deixe as duas guias do navegador abertas para acompanhar mais facilmente as etapas do laboratório.</li>
+            <div class="callout-dica"><strong>Dica:</strong> se quiser que as instruções do laboratório sejam exibidas em toda a janela do navegador, você pode ocultar o terminal no painel do navegador ao desmarcar a caixa de seleção Terminal no canto superior direito.</div>
+        </ul>
+
+        <h3>Uma solicitação de negócios para a cafeteria: criar um site estático</h3>
+        <p>Sofía comenta com Nikhil que gostaria de criar um site de prova de conceito para Frank e Martha que mostre as ofertas da cafeteria. Também forneceria detalhes comerciais, como a localização da loja, o horário comercial e o número de telefone. Nikhil está ansioso para ver como ela criará o site e concorda em criar as ilustrações que ela usará.</p>
+        <p>Neste primeiro desafio, você desempenhará o papel de Sofía. Você usará a AWS Command Line Interface (AWS CLI) e o SDK for Python para configurar o Amazon S3 para que ele hospede um site básico para a cafeteria.</p>
+
+        <h3>Tarefa 1: Conexão com o VS Code IDE e configuração do ambiente</h3>
+        <p>Nessa primeira tarefa, você se conectará ao VS Code IDE e configurará o ambiente para dar suporte ao desenvolvimento no qual você trabalhará durante o restante do laboratório.</p>
+        <ol>
+            <li>Conecte-se ao VS Code IDE.
+                <ul>
+                    <li>Na parte superior destas instruções, selecione <strong>Details (Detalhes)</strong> e, em seguida, <strong>AWS: Show (AWS: Exibir)</strong>.</li>
+                    <li>Copie valores da tabela semelhante à seguinte e cole-os em um editor de sua escolha para uso posterior: <strong>LabIDEURL</strong>, <strong>LabIDEPassword</strong>.</li>
+                    <li>Em uma nova guia do navegador, cole o valor de <strong>LabIDEURL</strong> para abrir o VS Code IDE.</li>
+                    <li>Na janela de prompt Welcome to code-server (Boas-vindas ao code-server), insira o valor de <strong>LabIDEPassword</strong> que você copiou para o editor anteriormente e clique em Submit (Enviar) para abrir o VS Code IDE.</li>
+                </ul>
+            </li>
+            <li>Instale o AWS SDK for Python.
+                <ul>
+                    <li>No terminal bash do VS Code (localizado na parte inferior do IDE), execute os seguintes comandos:
+<pre><code>sudo pip3 install boto3</code></pre>
+                    </li>
+                    <li><em>Observação: é possível que haja uma observação informando que você não está usando a versão mais recente do pip, mas pode ignorar esta mensagem.</em></li>
+                </ul>
+            </li>
+            <li>Baixe e extraia os arquivos necessários para este laboratório.
+                <ul>
+                    <li>No mesmo terminal, execute o seguinte comando:
+<pre><code>wget https://aws-tc-largeobjects.s3.us-west-2.amazonaws.com/CUR-TF-200-ACCDEV-2-91558/02-lab-s3/code.zip -P /home/ec2-user/environment</code></pre>
+                    </li>
+                    <li>O arquivo <code>code.zip</code> é baixado para o VS Code IDE. O arquivo é listado no painel de navegação à esquerda.</li>
+                    <li>Execute os seguintes comandos para extrair o arquivo:
+<pre><code>unzip code.zip</code></pre>
+                    </li>
+                    <div class="callout-dica"><strong>Dica:</strong> você usará os arquivos baixados e extraídos posteriormente neste laboratório.</div>
+                </ul>
+            </li>
+            <li>Verifique a versão 2 da AWS CLI.
+                <ul>
+                    <li>Verifique a versão da CLI:
+<pre><code>aws --version</code></pre>
+                    </li>
+                    <li>Para confirmar se a versão 2 da AWS CLI é a versão instalada, a saída deve ser semelhante à seguinte:
+<pre><code>aws-cli/2.15.9 Python/3.11.6 Linux/5.10.205-195.804.amzn2.x86_64 exe/x86_64.amzn.2 prompt/off</code></pre>
+                    </li>
+                </ul>
+            </li>
+        </ol>
+
+        <h3>Tarefa 2: Criação de um bucket do S3 usando a AWS CLI</h3>
+        <p>Nesta tarefa, você criará um bucket do S3 para hospedar o site. Você concluirá esta tarefa usando a AWS CLI.</p>
+        <ol>
+            <li>No terminal bash do VS Code, execute o comando a seguir, substituindo <code>&lt;bucket-name&gt;</code> pelo nome do bucket.
+                <ul>
+                    <li>Para o nome do bucket, use os seguintes itens, separados por traços (-): As iniciais em letras minúsculas, A data de hoje no formato AAAA-MM-DD, A palavra s3site. Por exemplo: <code>sm-2022-08-26-s3site</code>.</li>
+                </ul>
+<pre><code>aws s3api create-bucket --bucket &lt;bucket-name&gt; --region us-east-1</code></pre>
+            </li>
+            <li>O terminal deve confirmar se o bucket foi criado ao exibir uma saída semelhante a este exemplo:
+<pre><code>{
+"Location": "/sm-2022-08-26-s3site"
+}</code></pre>
+                <div class="callout-dica"><strong>Dica:</strong> copie o nome do bucket em um arquivo de texto no VS Code IDE ou no computador para que você possa copiá-lo facilmente durante as etapas posteriores deste laboratório. O nome do bucket não inclui a barra inicial (/) que foi exibida no par de nome-valor do local.</div>
+            </li>
+            <li>Use o Console de Gerenciamento da AWS para confirmar se o bucket foi criado e observe as configurações de permissões atuais no bucket.
+                <ul>
+                    <li>No Console de Gerenciamento da AWS, selecione <strong>Services (Serviços)</strong> e escolha <strong>S3</strong>. Você verá que o bucket foi criado.</li>
+                    <li>A coluna Acesso do bucket indica Bucket e objetos não públicos.</li>
+                    <li>Escolha o nome do bucket e selecione <strong>Permissões</strong>.</li>
+                    <li>Observe que a opção Bloquear todo o acesso público está ativada.</li>
+                    <li>Clique em <strong>Editar</strong> e desmarque Bloquear todo o acesso público.</li>
+                    <li>Selecione Block public access to buckets and objects granted through new access control lists (ACLs).</li>
+                    <li>Selecione Block public access to buckets and objects granted through any access control lists (ACLs).</li>
+                    <li>Selecione Block public and cross-account access to buckets and objects through any public bucket or access point policies.</li>
+                    <li>Clique em <strong>Salvar alterações</strong>.</li>
+                    <li>Na caixa de diálogo de confirmação de configurações, digite <code>confirm</code> e clique em <strong>Confirmar</strong>.</li>
+                </ul>
+                <em>Observação: você configurará o bucket com uma política de bucket posteriormente neste laboratório.</em>
+            </li>
+            <li>Role mais para baixo e observe que o bucket não tem uma política de bucket anexada atualmente.</li>
+        </ol>
+
+        <h3>Tarefa 3: Definição de uma política no bucket usando o SDK for Python</h3>
+        <p>Agora que Sofía criou o bucket, ela quer definir as permissões no bucket. Ela quer que Frank, Martha e Nikhil consigam acessar a primeira versão do site que ela está criando para que possam ver o progresso até o momento. No entanto, ela ainda não quer expor o site ao mundo exterior. Ela concretizará esse objetivo configurando uma política de bucket no bucket. Esta política de bucket aplicará uma condição.</p>
+        <ol>
+            <li>Crie o documento de política.
+                <ul>
+                    <li>No menu Explorer do painel de navegação do VS Code IDE: Selecione o Menu, clique em <strong>File (Arquivo)</strong> e, depois, <strong>New File (Novo arquivo)</strong>.</li>
+                    <li>Nomeie o arquivo vazio <code>website_security_policy.json</code> e selecione Create New File para criar o arquivo.</li>
+                    <li>Clique em OK no prompt que mostra o caminho completo do arquivo.</li>
+                    <li>No arquivo <code>website_security_policy.json</code>, cole o seguinte código:</li>
+                </ul>
+<pre><code>{
+"Version": "2008-10-17",
+"Statement": [
+{
+"Effect": "Allow",
+"Principal": "*",
+"Action": "s3:GetObject",
+"Resource": [
+"arn:aws:s3:::&lt;bucket-name&gt;/*",
+"arn:aws:s3:::&lt;bucket-name&gt;"
+],
+"Condition": {
+"IpAddress": {
+"aws:SourceIp": [
+"&lt;ip-address&gt;/32"
+]
+}
+}
+},
+{
+"Sid": "DenyOneObjectIfRequestNotSigned",
+"Effect": "Deny",
+"Principal": "*",
+"Action": "s3:GetObject",
+"Resource": "arn:aws:s3:::&lt;bucket-name&gt;/report.html",
+"Condition": {
+"StringNotEquals": {
+"s3:authtype": "REST-QUERY-STRING"
+}
+}
+}
+]
+}</code></pre>
+                <ul>
+                    <li>No documento de política, substitua todas as três entradas <code>&lt;bucket-name&gt;</code> pelo nome real do bucket.</li>
+                    <li>Por fim, substitua <code>&lt;ip-address&gt;</code> pelo endereço IP que está sendo usado para conectar seu computador à internet. É possível encontrar o endereço IP acessando <a href="https://www.whatismyip.com/" target="_blank">whatismyip.com</a></li>
+                    <li><em>Observação: não será possível visualizar o site se usar 0.0.0.0 como o aws:SourceIp permitido, pois a inteligência do Amazon S3 é suficiente para reconhecer que isso indica acesso público e bloqueará seu acesso. Portanto, use o endereço IPv4 específico. O arquivo é salvo automaticamente.</em></li>
+                </ul>
+                <div class="callout-dica"><strong>Análise:</strong> este documento de política consiste em duas declarações. A primeira declaração permite solicitações GetObject do seu endereço IP. A segunda declaração nega acesso a um objeto no bucket chamado report.html, a menos que uma condição específica seja atendida.</div>
+            </li>
+            <li>Aplique a política ao bucket usando o SDK for Python.
+                <ul>
+                    <li>No painel de navegação, expanda o diretório <code>python_3</code> e abra o arquivo <code>permissions.py</code> (que contém o código inicial).</li>
+                    <li>Edite o arquivo substituindo <code>&lt;bucket-name&gt;</code> pelo nome do bucket. As alterações são salvas automaticamente.</li>
+                    <li>Por fim, no terminal, navegue até o diretório python_3 e execute o seguinte código:
+<pre><code>cd python_3
+python3 permissions.py</code></pre>
+                    </li>
+                    <li>Se o comando for concluído com êxito, você verá a mensagem DONE na saída do terminal.</li>
+                    <li><em>Opcional: retorne à guia do navegador na qual o console do Amazon S3 está aberto e observe se a política foi aplicada ao bucket.</em></li>
+                </ul>
+            </li>
+        </ol>
+
+        <h3>Tarefa 4: Upload de objetos no bucket para criação do site</h3>
+        <p>Agora que Sofía configurou as permissões no bucket, ela precisa fazer upload dos objetos do site para o bucket. Sofía usará o terminal Bash do VS Code IDE para emitir um comando simples de upload de arquivo recursivo e desativar o armazenamento em cache (já que o site ainda está em desenvolvimento).</p>
+        <ol>
+            <li>Execute o código no terminal. Você ainda deve estar no diretório python_3.
+                <ul>
+                    <li>Substitua <code>&lt;bucket-name&gt;</code> abaixo pelo nome real do bucket.
+<pre><code>aws s3 cp ../resources/website s3://&lt;bucket-name&gt;/ --recursive --cache-control "max-age=0"</code></pre>
+                    </li>
+                </ul>
+            </li>
+        </ol>
+
+        <h3>Tarefa 5: Teste do acesso ao site</h3>
+        <ol>
+            <li>Carregue o site em uma guia do navegador.
+                <ul>
+                    <li>Retorne à guia do navegador com o console do Amazon S3.</li>
+                    <li>Escolha o nome do bucket e selecione Objetos.</li>
+                    <li>Selecione o arquivo <code>index.html</code>.</li>
+                    <li>Copie o URL de objeto. Ele estará no formato a seguir: <code>https://&lt;bucket-name&gt;.s3.amazonaws.com/index.html</code></li>
+                    <li>Verifique se o site é exibido ao colar esse URL completo no navegador, a fim de garantir que você esteja na mesma rede (pois ele bloqueará qualquer outra opção que não seja o IPv4 especificado).</li>
+                </ul>
+            </li>
+            <li>Tente acessar o mesmo URL de um local fora de sua rede.
+                <ul>
+                    <li>Maneiras de testar o acesso externo: Se você tiver um celular com conexão de rede celular, tente carregar o mesmo URL em um navegador no celular. Ou execute o comando no terminal bash do VS Code:
+<pre><code>curl https://&lt;bucket-name&gt;.s3.amazonaws.com/index.html</code></pre>
+                    </li>
+                </ul>
+                <div class="callout-dica"><strong>Análise:</strong> É feita uma tentativa de recuperar a página especificada, mas exibirá um erro AccessDenied porque o dispositivo se conecta à internet usando um endereço IP diferente de seu computador.</div>
+            </li>
+            <li>Teste se o site está sendo carregado.
+                <ul>
+                    <li>De volta à guia do navegador em que o site é carregado corretamente, selecione <strong>Login</strong> no canto superior direito do cabeçalho.</li>
+                    <li>Um alerta será exibido dizendo <code>No API to call</code>. Esse comportamento é esperado neste momento do curso.</li>
+                </ul>
+            </li>
+        </ol>
+
+        <h3>Tarefa 6: Análise do código do site</h3>
+        <ol>
+            <li>No VS Code IDE, no painel de navegação, navegue pelo diretório resources (recursos) &gt; website (site) e abra o arquivo <code>index.html</code>.
+                <ul>
+                    <li>Observe que essa página HTML faz referência a vários arquivos CSS na seção do cabeçalho. No final da seção do corpo, o código faz referência a alguns arquivos JavaScript (.js), como <code>config.js</code> e <code>pastries.js</code>.</li>
+                </ul>
+            </li>
+            <li>Abra o arquivo <code>config.js</code>. Ele contém um literal de objeto semelhante ao seguinte:
+<pre><code>window.COFFEE_CONFIG = {
+API_GW_BASE_URL_STR: null,
+COGNITO_LOGIN_BASE_URL_STR: null
+};</code></pre>
+            </li>
+            <li>Abra o arquivo <code>pastries.js</code>. Observe a lógica definida na função <code>loadAllItems</code>.</li>
+            <li>Abra o arquivo <code>all_products.json</code>. Observe que esse arquivo JSON contém informações sobre todos os produtos exibidos no site.</li>
+        </ol>
+
+        <h3>Atualização da cafeteria</h3>
+        <p>Sofía está satisfeita por ter um site básico hospedado no Amazon S3. Como ainda é um trabalho em andamento, ela se certificou de configurar o site para que seja acessível apenas pela rede da cafeteria. Frank e Martha estão satisfeitos com os resultados até o momento.</p>
+        <p>Sofía tira um tempo para relaxar, mas também já está ansiosa pela próxima tarefa. Ela está planejando começar a desenvolver os componentes que farão o site funcionar de forma dinâmica usando chamadas de API REST para um back-end de banco de dados.</p>
+    </div>
+</section>

@@ -1,0 +1,1037 @@
+<span class="anchor" id="modulo-9"></span>
+<section data-module-id="modulo-9">
+    <h1>9. Caching Information for Scalability</h1>
+
+    <span class="anchor-h2" id="mod9-intro"></span>
+    <h2>1. Introduction</h2>
+
+    <h4>Na nuvem, tempo é dinheiro e latência é perda de clientes. A solução definitiva para isso é o uso estratégico de <strong>Cache</strong> (armazenamento temporário de dados de acesso ultrarrápido).</h4>
+
+    <h3>Objetivos de Aprendizado</h3>
+    <p>Ao final deste módulo, você estará preparado para dominar os seguintes temas vitais para arquitetura de sistemas escaláveis e de alta performance na AWS:</p>
+    <ul>
+        <li><strong>Cenários e Padrões de Uso de Cache:</strong> Entender os cenários exatos de quando e onde utilizar cache em uma arquitetura distribuída na nuvem.</li>
+        <li><strong>Amazon ElastiCache:</strong> Trabalhar com o serviço gerenciado focado em cache de banco de dados e armazenamento em memória RAM (motores <strong>Memcached</strong> e <strong>Redis</strong>).</li>
+        <li><strong>Amazon CloudFront:</strong> Trabalhar com a CDN global da AWS focada em cache de rede, aceleração de tráfego web e terminação criptográfica segura.</li>
+        <li><strong>Computação na Borda (Edge Computing):</strong> Descrever, analisar e comparar tecnologias de processamento na borda da rede: <strong>Lambda@Edge</strong> e <strong>CloudFront Functions</strong>.</li>
+        <li><strong>Estratégias de Invalidação e Atualização:</strong> Aplicar as melhores estratégias de invalidação, controle de TTL (<em>Time To Live</em>) e atualização de cache para mitigar dados obsoletos (<em>stale data</em>).</li>
+    </ul>
+
+    <h3>O Caso da Cafeteria (O Problema de Performance)</h3>
+    <p>Com o estrondoso sucesso e popularização do site da cafeteria, um novo problema de escala surgiu: os clientes começaram a reclamar publicamente que a página de <strong>"Estoque de Grãos de Café"</strong> está demorando muito para carregar.</p>
+    <p>Além da lentidão no catálogo de grãos, a desenvolvedora <strong>Sofía</strong> precisa garantir um requisito essencial de governança e segurança na nuvem: fazer com que todo o site da cafeteria opere de forma criptografada e segura utilizando o protocolo <strong>HTTPS</strong>.</p>
+
+    <h3>A Solução em Duas Frentes (A Arquitetura)</h3>
+    <p>Para resolver a lentidão e atender aos requisitos de segurança simultaneamente, a arquiteta consultora <strong>Olivia</strong> e <strong>Sofía</strong> dividirão a arquitetura de cache em duas camadas estratégicas:</p>
+
+    <ol>
+        <li><strong>No Back-end (Camada de Banco de Dados):</strong>
+            <p>O site demora porque toda vez que alguém abre a página, a função Lambda precisa realizar uma consulta pesada e repetitiva no banco de dados relacional para listar os grãos. A solução definitiva será posicionar o <strong>Amazon ElastiCache</strong> (usando o motor <strong>Memcached</strong>) na frente do banco de dados para guardar temporariamente em memória RAM o resultado dessa lista de grãos já consultada, aliviando o banco de dados e respondendo em microssegundos.</p>
+        </li>
+        <li><strong>No Front-end (Camada de Rede / Site):</strong>
+            <p>Para resolver o carregamento lento das imagens, arquivos HTML, CSS e JavaScript hospedados no Amazon S3, e para ativar a criptografia HTTPS global com certificados SSL/TLS sem onerar o bucket de origem, elas utilizarão o <strong>Amazon CloudFront</strong>, a CDN (<em>Content Delivery Network</em> - Rede de Entrega de Conteúdo) de alta velocidade da AWS com presença em centenas de pontos de borda (<em>Edge Locations</em>) ao redor do mundo.</p>
+        </li>
+    </ol>
+
+    <div class="callout-dica">
+        <strong>Resumo Arquitetural da Solução da Cafeteria:</strong><br>
+        • <strong>Borda / Rede (CloudFront):</strong> Cache dos arquivos estáticos do S3 + Terminação segura HTTPS.<br>
+        • <strong>Aplicação / Banco (ElastiCache Memcached):</strong> Cache em memória RAM da listagem de grãos entre o Lambda e o banco de dados.
+    </div>
+
+    <hr>
+
+    <span class="anchor-h2" id="mod9-caching-overview"></span>
+    <h2>2. Caching overview</h2>
+
+    <h4>Com o crescimento exponencial das aplicações modernas (escala global, dispositivos IoT, jogos em tempo real e microsserviços), a exigência sobre a infraestrutura de dados aumentou drasticamente. Não basta mais apenas entregar o dado; é fundamental entregá-lo em <strong>microssegundos</strong>.</h4>
+
+    <h3>O que é Caching?</h3>
+    <p>Em termos simples, <strong>Caching</strong> é o ato de atender a uma requisição computacional usando uma <strong>cópia temporária e de altíssima velocidade</strong> de um dado, em vez de buscar o dado original diretamente na fonte persistente (como um banco de dados relacional em disco ou um servidor raiz).</p>
+
+    <p>Uma estratégia de cache se apoia em três conceitos fundamentais:</p>
+    <ul>
+        <li><strong>O Cache:</strong> É a cópia rápida e temporária mantida em um meio de armazenamento volátil de baixa latência (como memória RAM).</li>
+        <li><strong>A Origem (Origin):</strong> É a fonte verdadeira, canônica e persistente dos dados (o banco de dados primário, cluster Aurora, servidor web ou bucket S3).</li>
+        <li><strong>Tempo de Vida (TTL - Time To Live):</strong> Como os dados no cache são temporários, eles recebem uma "data de validade" (TTL) para garantir que não fiquem desatualizados (obsoletos) para sempre. Ao expirar o TTL, a próxima requisição força a busca do dado renovado na origem.</li>
+    </ul>
+
+    <h3>Onde o Cache Pode Ser Implementado?</h3>
+    <p>O cache não é uma tecnologia isolada, mas uma estratégia que pode (e deve) ser implementada em todas as camadas de um sistema moderno:</p>
+    <ul>
+        <li><strong>No Cliente:</strong> No navegador web ou aplicativo mobile do usuário, controlado via cabeçalhos HTTP (ex: <code>Cache-Control</code>, <code>Expires</code>, <code>ETag</code>).</li>
+        <li><strong>Na Rede / Entrega:</strong> Em Redes de Entrega de Conteúdo (CDN) distribuídas globalmente, como o <strong>Amazon CloudFront</strong>.</li>
+        <li><strong>No Back-end / Banco de Dados:</strong> Em bancos de dados em memória posicionados na frente de bases relacionais e não relacionais, como o <strong>Amazon ElastiCache</strong> (Redis e Memcached) e o <strong>DynamoDB Accelerator (DAX)</strong>.</li>
+    </ul>
+
+    <h3>Quando Usar Cache? (As Perguntas de Ouro)</h3>
+    <p>Decidir se você deve ou não usar cache em sua arquitetura exige responder a quatro perguntas fundamentais:</p>
+
+    <ol>
+        <li><strong>A consulta original é lenta e cara?</strong>
+            <p>Se o banco de dados precisa juntar (<code>JOIN</code>) várias tabelas complexas, calcular somas analíticas ou varrer milhões de registros para gerar um relatório, o processo será demorado e consumirá muito processamento de CPU e I/O. Guardar o resultado final no cache economiza tempo, ciclos de máquina e dinheiro.</p>
+        </li>
+        <li><strong>O dado é estático e muito acessado?</strong>
+            <p>Não faz sentido colocar em cache um dado que muda a cada segundo ou que é lido apenas uma vez por mês. O candidato ideal para o cache é um dado que <strong>muda pouco, mas que é acessado milhares de vezes por minuto</strong> (padrão <em>Read-Heavy</em>, como o perfil público de um usuário ou o catálogo de grãos da cafeteria).</p>
+        </li>
+        <li><strong>A aplicação tolera dados "velhos" (Stale Data)?</strong>
+            <p>Por definição, qualquer dado lido do cache é um dado "desatualizado" em relação à origem primária. Se você está mostrando a cotação de moedas para um usuário comum ou o saldo aproximado de pontos, um atraso de 1 minuto é perfeitamente aceitável. Se a tela for para um corretor executando uma compra milionária de ações na bolsa, o dado precisa ser estritamente em tempo real (direto da origem).</p>
+        </li>
+        <li><strong>Vale a pena o custo e a complexidade?</strong>
+            <p>Manter um cluster de cache adiciona custos de infraestrutura provisionada e aumenta sensivelmente a complexidade do código da aplicação (lógica de sincronização, expiração de chaves e tratamento de falhas). A regra geral de arquitetura é: <strong>não otimize cedo demais</strong>. Construa a aplicação, monitore os gargalos em produção e, então, aplique o cache onde ele realmente fará diferença.</p>
+        </li>
+    </ol>
+
+    <div class="callout-alerta">
+        <strong>Pontos-Chave (Key Takeaways):</strong><br>
+        • <strong>Proteção da Origem:</strong> O Cache serve requisições usando cópias rápidas em memória, protegendo a origem persistente de sobrecargas e picos de tráfego.<br>
+        • <strong>Cenários Ideais:</strong> É ideal para aplicações com volume intenso de leitura (<em>Read-Heavy</em>) e cálculos computacionais pesados (<em>Compute-Intensive</em>).<br>
+        • <strong>Defesa em Profundidade:</strong> Pode ser aplicado em múltiplas camadas do sistema simultaneamente (Cliente &rarr; CDN &rarr; API &rarr; Banco de Dados).
+    </div>
+
+    <hr>
+
+    <span class="anchor-h2" id="mod9-caching-elasticache"></span>
+    <h2>3. Caching with ElastiCache</h2>
+
+    <h4>O <strong>Amazon ElastiCache</strong> é a resposta totalmente gerenciada da AWS para bancos de dados que não dão conta do volume massivo de leitura ou para aplicações que precisam responder com latência estrita em <strong>sub-milissegundos</strong>. O segredo de sua velocidade vertiginosa reside no armazenamento dos dados diretamente na <strong>memória RAM</strong>, e não no disco rígido ou SSD.</h4>
+
+    <p>O ElastiCache é um serviço gerenciado (a AWS é responsável pelo provisionamento de hardware, detecção de falhas, aplicação de patches e backups automáticos). Ao criar um cluster no ElastiCache, o arquiteto ou desenvolvedor precisa tomar a decisão técnica mais importante de todo o projeto: <strong>escolher o "Motor" (Engine) de cache</strong>.</p>
+
+    <h3>A Grande Escolha: Memcached vs. Redis (Foco de Prova AWS)</h3>
+    <p>O Amazon ElastiCache oferece suporte a dois motores de código aberto consagrados no mercado, cada um projetado para filosofias e casos de uso distintos:</p>
+
+    <div class="callout-dica">
+        <strong>1. ElastiCache for Memcached: A Palavra de Ordem é Simplicidade</strong><br>
+        • <strong>Características Arquiteturais:</strong> É uma engine <strong>multithreaded</strong> (capaz de utilizar múltiplos núcleos de processamento de CPU em uma única instância), exige baixíssima manutenção operacional e escala horizontalmente com extrema facilidade através da adição de nós ao cluster.<br>
+        • <strong>O que Guarda:</strong> Armazena exclusivamente dados simples e planos (<em>flat strings</em> / formato chave-valor simples), como páginas HTML renderizadas inteiras ou fragmentos serializados de arquivos JSON.<br>
+        • <strong>Quando Usar:</strong> Quando você precisa do modelo de cache mais simples, leve e rápido possível, e <strong>não se importa se perder os dados caso o nó desligue ou seja reiniciado</strong> (o Memcached é 100% volátil e não possui nenhum mecanismo de persistência em disco).
+    </div>
+
+    <div class="callout-alerta">
+        <strong>2. ElastiCache for Redis: A Palavra de Ordem é Poder Avançado</strong><br>
+        • <strong>Características Arquiteturais:</strong> Suporta <strong>persistência de dados</strong> (se o nó cair ou for reiniciado, os dados não somem, sendo recuperados via snapshots RDB ou logs de comandos AOF), suporte a replicação de <strong>alta disponibilidade (Multi-AZ)</strong> com failover automático e réplicas de leitura.<br>
+        • <strong>O que Guarda:</strong> Manipula nativamente estruturas e tipos de dados complexos (Listas, Hashes, Sets, Sorted Sets para placares/leaderboards, Bitmaps, HyperLogLogs e Geospatial). Opera verdadeiramente como um banco de dados relacional/NoSQL completo em memória.<br>
+        • <strong>Recurso Extra de Mensageria:</strong> Possui sistema nativo de mensageria <strong>Pub/Sub (Publish/Subscribe)</strong>, amplamente adotado em salas de chat, mecanismos de streaming e notificações reativas em tempo real.<br>
+        • <strong>Quando Usar:</strong> Quando sua aplicação exige durabilidade e persistência dos dados no cache, manipulação de estruturas de dados complexas sem serialização/desserialização no cliente, ou alta disponibilidade contínua sem risco de perda de sessão.
+    </div>
+
+    <h4>Tabela Comparativa: Memcached vs. Redis</h4>
+    <table>
+        <thead>
+            <tr>
+                <th>Recurso / Critério</th>
+                <th>Amazon ElastiCache for Memcached</th>
+                <th>Amazon ElastiCache for Redis</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>Filosofia Principal</strong></td>
+                <td>Simplicidade e velocidade pura para chave-valor</td>
+                <td>Recursos avançados e estruturas complexas em memória</td>
+            </tr>
+            <tr>
+                <td><strong>Modelo de Concorrência</strong></td>
+                <td><strong>Multithread</strong> (escala com múltiplos cores de CPU)</td>
+                <td>Single-thread para comandos (Multithread para I/O auxiliar)</td>
+            </tr>
+            <tr>
+                <td><strong>Tipos de Dados</strong></td>
+                <td>Apenas Strings planas e objetos serializados</td>
+                <td>Strings, Hashes, Lists, Sets, Sorted Sets, Bitmaps, Geo</td>
+            </tr>
+            <tr>
+                <td><strong>Persistência em Disco</strong></td>
+                <td>Não (100% volátil na memória RAM)</td>
+                <td><strong>Sim</strong> (Snapshots RDB pontuais e logs AOF contínuos)</td>
+            </tr>
+            <tr>
+                <td><strong>Alta Disponibilidade (HA)</strong></td>
+                <td>Não (nós independentes; sem replicação)</td>
+                <td><strong>Sim</strong> (Replicação Multi-AZ com Failover automático)</td>
+            </tr>
+            <tr>
+                <td><strong>Pub/Sub e Mensageria</strong></td>
+                <td>Não suportado</td>
+                <td><strong>Suportado nativamente</strong> (Publish/Subscribe)</td>
+            </tr>
+            <tr>
+                <td><strong>Backup e Restauração</strong></td>
+                <td>Não suportado</td>
+                <td><strong>Suportado</strong> (exportação/importação para Amazon S3)</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h3>Vocabulário Básico da Arquitetura do ElastiCache</h3>
+    <p>Para projetar e dimensionar clusters no ElastiCache, é fundamental dominar três conceitos de infraestrutura:</p>
+    <ul>
+        <li><strong>Node (Nó):</strong> É a máquina virtual isolada subjacente; representa um "bloco alocado" de memória RAM rodando em uma rede VPC privada com sua própria CPU e endereçamento de rede. É a menor unidade fundamental de construção do ElastiCache.</li>
+        <li><strong>Cluster:</strong> É o agrupamento lógico de gerenciamento de um ou mais Nós de cache. No caso do <strong>Memcached</strong>, o cluster particiona os dados horizontalmente entre até 20 nós distribuídos.</li>
+        <li><strong>Especificidade do Redis (Shards e Réplicas):</strong> O Redis estrutura nós em unidades chamadas <strong>Shards (partições)</strong>. Cada Shard contém <strong>1 nó primário</strong> (responsável por receber comandos de gravação e leitura) e de zero a <strong>5 nós de réplica</strong> somente leitura (read-replicas) posicionados em diferentes Zonas de Disponibilidade. Um cluster Redis avançado pode conter dezenas de Shards agrupando centenas de nós.</li>
+    </ul>
+
+    <h3>A Lógica do Código: O Fluxo de Acesso e a Penalidade do Cache Miss</h3>
+    <p>Como desenvolvedor, quando você posiciona o ElastiCache na frente de uma base de dados persistente (como Amazon RDS, Aurora ou DynamoDB), sua aplicação deve implementar explicitamente a seguinte lógica de consulta:</p>
+
+    <ol>
+        <li>A aplicação recebe uma solicitação e pergunta primeiro ao ElastiCache: <em>"Você tem o resultado da chave 'Lista_de_Graos'?"</em></li>
+        <li><strong>Cenário A &mdash; Cache Hit (Acerto no Cache):</strong><br>
+            O ElastiCache responde instantaneamente: <em>"Sim, o dado está em memória!"</em> e devolve o valor em sub-milissegundos. A requisição é concluída com sucesso imediatamente, sem consumir nenhum recurso do banco de dados relacional.
+        </li>
+        <li><strong>Cenário B &mdash; Cache Miss (Falha / Dado Ausente):</strong><br>
+            O ElastiCache responde: <em>"Não, o dado não existe nesta chave ou o tempo de validade (TTL) expirou"</em>.
+        </li>
+    </ol>
+
+    <div class="callout-alerta">
+        <strong>A Penalidade do Cache Miss (The Cache Miss Penalty):</strong><br>
+        Quando ocorre um <strong>Cache Miss</strong>, a aplicação não economiza tempo; na verdade, ela sofre uma penalidade cumulativa de <strong>três viagens de rede obrigatórias</strong>:<br><br>
+        1. <strong>Primeira Viagem:</strong> A aplicação perdeu preciosos milissegundos enviando uma requisição de consulta ao ElastiCache apenas para descobrir que o dado não estava lá.<br>
+        2. <strong>Segunda Viagem:</strong> A aplicação é forçada a recorrer à fonte primária e lenta, executando a query pesada no disco do banco de dados (Amazon RDS/Aurora).<br>
+        3. <strong>Terceira Viagem:</strong> A aplicação precisa enviar uma nova requisição de gravação ao ElastiCache para armazenar o dado recém-consultado na memória RAM, garantindo que a próxima requisição encontre um <em>Cache Hit</em>.<br><br>
+        <em>Alerta de Engenharia:</em> Se a configuração de expiração (<strong>TTL - Time To Live</strong>) for configurada com um tempo curto demais, o sistema sofrerá <strong>Cache Misses em cascata</strong>. Isso degrada o throughput global, aumenta a latência média para os usuários e anula completamente os benefícios de performance que a camada de cache deveria proporcionar!
+    </div>
+
+
+    <hr>
+
+    <span class="anchor-h2" id="mod9-lab1"></span>
+    <div class="lab-section">
+        <h2>Lab 9.1: Caching Application Data with ElastiCache</h2>
+
+        <h3>Visão Geral e Objetivos do Laboratório</h3>
+        <p>Neste laboratório prático avançado, você projetará e implantará uma camada de armazenamento em cache de dados com o <strong>Amazon ElastiCache for Memcached</strong>. Você desenvolverá e testará scripts em Python para implementar os padrões de <strong>Lazy Loading (Cache-Aside)</strong> e <strong>Invalidação de Cache (Cache Eviction)</strong> integrados a um banco de dados relacional <strong>Amazon Aurora Serverless</strong>. Por fim, você atualizará a aplicação web conteinerizada em <strong>Node.js</strong> do fornecedor de café, recompilará a imagem Docker, enviará o artefato para o <strong>Amazon ECR</strong> e configurará o <strong>AWS Elastic Beanstalk</strong> para consumir o cluster de cache em produção.</p>
+
+        <h4>Principais Objetivos de Aprendizado:</h4>
+        <ul>
+            <li>Configurar a segurança de rede na Amazon VPC (Security Groups e Subnet Groups) para permitir comunicação segura entre o ElastiCache, o Elastic Beanstalk e o Aurora Serverless.</li>
+            <li>Provisionar um cluster particionado com múltiplos nós no <strong>Amazon ElastiCache for Memcached</strong> utilizando instâncias baseadas em processadores AWS Graviton2.</li>
+            <li>Implementar a estratégia de <strong>Carregamento Lento (Lazy Loading / Cache-Aside)</strong> em Python utilizando a biblioteca <code>pymemcache</code> e medir a diferença de latência entre um <em>Cache Miss</em> e um <em>Cache Hit</em>.</li>
+            <li>Aplicar estratégias de <strong>Invalidação de Cache</strong> durante operações de mutação de dados (<code>INSERT</code>, <code>UPDATE</code>, <code>DELETE</code>) para prevenir a exibição de dados obsoletos (<em>Stale Data</em>).</li>
+            <li>Refatorar o código da aplicação em Node.js com granularidade de chaves individuais (<code>beans_&lt;id&gt;</code>) e indicadores de procedência dos dados (<em>Cache vs. Database</em>).</li>
+            <li>Configurar variáveis de ambiente dinâmicas (<code>MEMC_HOST</code>) no AWS Elastic Beanstalk e validar a entrega em sub-milissegundos no site estático da cafeteria no Amazon S3.</li>
+        </ul>
+
+        <div class="callout-dica">
+            <strong>Duração Estimada:</strong> 45 minutos<br>
+            <strong>Restrições de Serviço AWS:</strong> O acesso aos serviços neste laboratório é estritamente limitado aos recursos necessários (VPC, ElastiCache, RDS Aurora Serverless, ECR, Elastic Beanstalk, S3 e IAM). Tentativas de criar recursos fora do escopo resultarão em erros de autorização.
+        </div>
+
+        <h3>Cenário de Negócios: Acelerando o Catálogo de Grãos da Cafeteria</h3>
+        <p>Frank e Martha comemoraram a integração bem-sucedida do inventário de grãos ao site da cafeteria realizada no módulo anterior. No entanto, o sucesso trouxe um novo desafio: clientes começaram a relatar lentidão incômoda ao abrir a página de compra de café. O tempo de resposta para listar as variedades de grãos estava muito alto.</p>
+        <p>A consultora da AWS, <strong>Olivia</strong>, identificou a causa raiz: a cada requisição de cliente, a aplicação executava consultas relacionais pesadas no banco de dados Aurora Serverless. Olivia propôs implementar uma camada de <strong>armazenamento em cache em memória RAM</strong> posicionada na frente do banco de dados.</p>
+
+        <div class="callout-alerta">
+            <strong>Decisão Arquitetural: Por que NÃO usar cache local na instância EC2?</strong><br>
+            Seria possível instalar um software de cache diretamente no sistema operacional da instância EC2 que hospeda os contêineres. No entanto, Olivia explicou por que essa abordagem é inadequada para produção na nuvem:<br>
+            1. <strong>Sem Tolerância a Falhas:</strong> Se a instância EC2 for encerrada, sofrer falha ou for reciclada pelo Auto Scaling, todos os dados em cache são instantaneamente perdidos.<br>
+            2. <strong>Inconsistência no Auto Scaling:</strong> Quando o Beanstalk adiciona novas instâncias EC2, cada instância começa com um cache "frio" e isolado, duplicando consultas ao banco de dados.<br>
+            3. <strong>Sobrecarga Operacional:</strong> A equipe da cafeteria teria que gerenciar manualmente instalação, patches de segurança, particionamento de memória e monitoramento.<br>
+            4. <strong>A Escolha Gerenciada:</strong> O <strong>Amazon ElastiCache</strong> desacopla a camada de cache em um cluster autônomo, elástico, monitorado pela AWS e compartilhável por todas as instâncias da aplicação.
+        </div>
+
+        <p><em>Divisão de Papéis no Laboratório:</em> Você atuará como <strong>Olivia</strong> para configurar as regras de rede, provisionar o cluster ElastiCache for Memcached e criar os scripts de teste em Python (POC). Em seguida, atuará como o desenvolvedor <strong>Nikhil</strong> para atualizar o código Node.js, recompilar o contêiner Docker e configurar o Elastic Beanstalk.</p>
+
+        <hr>
+
+        <h3>Tarefa 1: Preparação do Ambiente de Desenvolvimento</h3>
+        <p>Nesta tarefa, você conectará ao VS Code IDE baseado em nuvem, baixará os arquivos de código do laboratório e executará o script de automação para restaurar o ambiente construído nos módulos anteriores.</p>
+
+        <ol>
+            <li>Conecte-se ao <strong>VS Code IDE</strong> utilizando a URL (<code>LabIDEURL</code>) e a senha (<code>LabIDEPassword</code>) disponíveis no painel de detalhes do laboratório.</li>
+            <li>No terminal Bash integrado do IDE, faça o download e descompacte os arquivos do laboratório:
+                <pre><code>wget https://aws-tc-largeobjects.s3.us-west-2.amazonaws.com/CUR-TF-200-ACCDEV-2-91558/08-lab-db-caching/code.zip -P /home/ec2-user/environment
+cd /home/ec2-user/environment
+unzip code.zip</code></pre>
+            </li>
+            <li>Conceda permissão de execução e execute o script de provisionamento:
+                <pre><code>chmod +x ./resources/setup.sh && ./resources/setup.sh</code></pre>
+                <p>Quando solicitado, insira seu endereço IPv4 público (obtido em <em>whatismyipaddress.com</em>) para configurar a política de acesso do bucket S3 da cafeteria.</p>
+            </li>
+            <li>Confirme as versões das ferramentas instaladas:
+                <pre><code>aws --version
+pip3 show boto3</code></pre>
+            </li>
+        </ol>
+
+        <hr>
+
+        <h3>Tarefa 2: Configuração das Sub-redes e Grupos de Segurança para o ElastiCache</h3>
+        <p>Para viabilizar a comunicação na porta padrão do Memcached (<code>11211</code>), você configurará as regras de entrada no Security Group do banco de dados e criará um grupo de sub-redes Multi-AZ para o ElastiCache.</p>
+
+        <ol>
+            <li>No AWS Management Console, acesse o serviço <strong>EC2</strong> &gt; <strong>Grupos de segurança</strong>.</li>
+            <li>Localize e selecione o grupo de segurança que possui <code>Aurora</code> no nome.</li>
+            <li>Na aba <strong>Regras de entrada</strong>, clique em <strong>Editar regras de entrada</strong> e adicione as seguintes regras:
+                <ul>
+                    <li><strong>Regra 1 (Comunicação do Cluster / Elastic Beanstalk):</strong>
+                        <ul>
+                            <li>Tipo: <em>TCP personalizado</em> | Porta: <code>11211</code></li>
+                            <li>Origem: Selecione o próprio grupo de segurança do Aurora (regra autorreferenciada para permitir que as instâncias com esse SG alcancem o cache).</li>
+                        </ul>
+                    </li>
+                    <li><strong>Regra 2 (Acesso do VS Code IDE para testes):</strong>
+                        <ul>
+                            <li>Tipo: <em>TCP personalizado</em> | Porta: <code>11211</code></li>
+                            <li>Origem: Selecione o grupo de segurança com <code>Lab IDE SG</code> no nome.</li>
+                        </ul>
+                    </li>
+                </ul>
+                Clique em <strong>Salvar regras</strong>.
+            </li>
+            <li>Crie o Grupo de Sub-redes do ElastiCache:
+                <ul>
+                    <li>No console da AWS, navegue até o serviço <strong>ElastiCache</strong>.</li>
+                    <li>No painel lateral, clique em <strong>Grupos de sub-redes</strong> &gt; <strong>Criar grupo de sub-redes</strong>.</li>
+                    <li><strong>Nome:</strong> <code>ElastiCacheSubnetGroup</code></li>
+                    <li><strong>Descrição:</strong> <code>Subnet Group for ElastiCache</code></li>
+                    <li><strong>ID da VPC:</strong> Selecione a <code>VPC da IDE</code>.</li>
+                    <li><strong>Sub-redes selecionadas:</strong> Certifique-se de que pelo menos 2 sub-redes em Zonas de Disponibilidade distintas estejam selecionadas.</li>
+                    <li>Clique em <strong>Criar</strong>.</li>
+                </ul>
+            </li>
+        </ol>
+
+        <hr>
+
+        <h3>Tarefa 3: Criação do Cluster Amazon ElastiCache for Memcached</h3>
+        <p>Olivia recomendou o motor <strong>Memcached</strong> para o catálogo de grãos devido à sua simplicidade, alto throughput multithread e facilidade de particionamento horizontal, sem a complexidade de persistência do Redis.</p>
+
+        <ol>
+            <li>No console do ElastiCache, selecione <strong>Caches do Memcached</strong> no painel de navegação esquerdo.</li>
+            <li>Clique em <strong>Criar Cluster Memcached</strong> e preencha as configurações:
+                <ul>
+                    <li><strong>Mecanismo:</strong> <strong>Memcached</strong>.</li>
+                    <li><strong>Opção de implantação:</strong> <strong>Cluster baseado em nós</strong>.</li>
+                    <li><strong>Método de criação:</strong> <strong>Cache de cluster</strong>.</li>
+                    <li><strong>Local:</strong> Nuvem AWS.</li>
+                    <li><strong>Nome do cluster:</strong> <code>MemcachedCache</code></li>
+                    <li><strong>Versão do mecanismo:</strong> <code>1.6.6</code></li>
+                    <li><strong>Porta:</strong> <code>11211</code></li>
+                    <li><strong>Grupo de parâmetros:</strong> <code>default.memcached.1.6</code></li>
+                    <li><strong>Tipo de nó:</strong> <code>cache.r6g.large</code> (13.07 GiB com arquitetura Graviton2).</li>
+                    <li><strong>Número de nós:</strong> <code>3</code> (particionando chaves horizontalmente entre 3 nós).</li>
+                    <li><strong>Conectividade &gt; Grupos de sub-redes:</strong> Escolha <em>Escolher o grupo de sub-redes existente</em> &rarr; <code>ElastiCacheSubnetGroup</code>.</li>
+                </ul>
+            </li>
+            <li>Na tela de <strong>Configurações avançadas</strong>:
+                <ul>
+                    <li>Em <em>Grupos de segurança selecionados</em>, clique em <strong>Gerenciar</strong>.</li>
+                    <li>Selecione o grupo de segurança que contém <code>ClusterSecurityGroup</code> no nome.</li>
+                </ul>
+            </li>
+            <li>Clique em <strong>Próximo</strong> e, em seguida, em <strong>Criar</strong>. O cluster levará alguns minutos para atingir o status <em>Disponível</em>.</li>
+        </ol>
+
+        <hr>
+
+        <h3>Tarefa 4: Carregamento de Registros no Cache (Padrão Lazy Loading / Cache-Aside)</h3>
+        <p>Nesta tarefa, você executará uma Prova de Conceito (POC) em Python testando a estratégia <strong>Lazy Loading</strong>: a aplicação sempre tenta ler primeiro do Memcached; se o dado não existir (<em>Cache Miss</em>), busca no Aurora Serverless, grava no cache com um TTL determinado e devolve ao usuário.</p>
+
+        <ol>
+            <li>No terminal Bash do VS Code, instale os compiladores e as bibliotecas clientes do MySQL e Memcached:
+                <pre><code>cd ~/environment/python_3
+sudo dnf install -y mariadb105-devel gcc python3-devel
+sudo pip3 install PyMySQL pymemcache</code></pre>
+            </li>
+            <li>Identifique os endpoints de conexão utilizando a AWS CLI:
+                <p><strong>Endpoint do ElastiCache for Memcached:</strong></p>
+                <pre><code>aws elasticache describe-cache-clusters</code></pre>
+                <p>Copie o valor de <code>ConfigurationEndpoint.Address</code> (ex: <code>memcachedcache.xxxxxxx.cfg.use1.cache.amazonaws.com</code>).</p>
+                <p><strong>Endpoint de Gravação do Aurora Serverless:</strong></p>
+                <pre><code>aws rds describe-db-cluster-endpoints</code></pre>
+                <p>Copie o valor de <code>Endpoint</code> cujo <code>EndpointType</code> seja <code>WRITER</code>.</p>
+            </li>
+            <li>Abra o arquivo <code>python_3/find_all.py</code> no VS Code e analise o código:
+                <pre><code># 1. Consulta inicial ao cache
+data = memcached_client.get('all_beans')
+
+# 2. Se Cache Miss, consulta o banco de dados relacional
+if data is None:
+    db_query = "SELECT * FROM beans"
+    mycursor = mydb.cursor()
+    mycursor.execute(db_query)
+    # ... formata JSON ...
+    # 3. Grava no cache com TTL de 180 segundos (3 minutos)
+    memcached_call = memcached_client.set('all_beans', output_json, TTL_INT)</code></pre>
+            </li>
+            <li>Substitua os placeholders no arquivo:
+                <ul>
+                    <li><code>&lt;FMI_1&gt;</code>: Endpoint do ElastiCache Memcached.</li>
+                    <li><code>&lt;FMI_2&gt;</code>: Endpoint WRITER do cluster Aurora Serverless.</li>
+                </ul>
+                Salve o arquivo (<em>Ctrl + S</em>).
+            </li>
+            <li>Execute o teste inicial (<strong>Cenário de Cache Miss</strong>):
+                <pre><code>python3 find_all.py</code></pre>
+                <p>A saída indicará que o cache estava vazio: o script executou a query lenta no banco de dados (~26 segundos na primeira inicialização) e gravou o resultado no Memcached:</p>
+                <pre><code>Finding all items
+Data not found in cache. Retrieving data from the database:
+[ ... registros dos grãos ... ]
+Setting the result in cache: True</code></pre>
+            </li>
+            <li>Execute o comando novamente em seguida (<strong>Cenário de Cache Hit</strong>):
+                <pre><code>python3 find_all.py</code></pre>
+                <p>A resposta retornará <strong>instantaneamente</strong> (em apenas ~57 milissegundos), sem tocar no Aurora:</p>
+                <pre><code>Finding all items
+Data returned from cache:
+[ ... registros entregues direto da memória RAM! ... ]</code></pre>
+            </li>
+        </ol>
+
+        <hr>
+
+        <h3>Tarefa 5: Atualização de Dados (Estratégia de Invalidação de Cache)</h3>
+        <p>Se um registro de grão for alterado no banco de dados, o cache precisa ser sincronizado para evitar o temido problema de <strong>Dados Obsoletos (Stale Data)</strong>. O script <code>update_item.py</code> demonstra a estratégia de <em>Cache Eviction</em>: sempre que um <code>UPDATE</code> é executado na origem, a chave no Memcached é imediatamente expurgada.</p>
+
+        <ol>
+            <li>Abra o arquivo <code>python_3/update_item.py</code> no VS Code:
+                <pre><code>db_query = "UPDATE beans SET supplier_id=%s, type=%s, product_name=%s, price=%s, description=%s, quantity=%s WHERE id=%s"
+vals = (1, "Arabica Arabica", "Best bean EVER", "28.00", "So delicious, smooth coffee.", 800, 1)
+mycursor.execute(db_query, vals)
+
+# Invalida explicitamente a chave no cache
+memcached_call = memcached_client.delete('all_beans')</code></pre>
+            </li>
+            <li>Preencha os endpoints <code>&lt;FMI_1&gt;</code> e <code>&lt;FMI_2&gt;</code>, salve o arquivo e execute:
+                <pre><code>python3 update_item.py</code></pre>
+                <p>Saída esperada:</p>
+                <pre><code>Updating a bean item
+Updated item in RDS
+FLUSH the CACHE as it is stale
+Purged the cache: True</code></pre>
+            </li>
+            <li>Execute novamente <code>python3 find_all.py</code>: o script sofrerá um Cache Miss controlado, lerá os novos valores do Aurora ("Arabica Arabica", "Best bean EVER", R$ 28.00) e repovoará o cache.</li>
+        </ol>
+
+        <hr>
+
+        <h3>Tarefa 6: Criação de um Novo Registro (Insert & Cache Eviction)</h3>
+        <p>Ao inserir novos produtos no catálogo de grãos, a mesma política de expurgo é aplicada para que novas consultas reflitam o item recém-adicionado.</p>
+
+        <ol>
+            <li>No arquivo <code>python_3/create_item.py</code>, observe a query <code>INSERT INTO beans ...</code> adicionando a variedade de café <em>"Java Java"</em> com preço de R$ 38.00 e quantidade 400. Em seguida, a chave <code>all_beans</code> é excluída via <code>memcached_client.delete('all_beans')</code>.</li>
+            <li>Configure os endpoints <code>&lt;FMI_1&gt;</code> e <code>&lt;FMI_2&gt;</code> e execute:
+                <pre><code>python3 create_item.py</code></pre>
+                <p>Saída:</p>
+                <pre><code>Adding a new bean item
+1 record(s) inserted into RDS.
+FLUSH the CACHE as it is stale
+Purged the cache: True</code></pre>
+            </li>
+            <li>Execute <code>python3 find_all.py</code> para comprovar que o novo grão com ID 15 agora faz parte do conjunto armazenado em cache.</li>
+        </ol>
+
+        <hr>
+
+        <h3>Tarefa 7: Exclusão de um Registro (Delete & Cache Eviction)</h3>
+        <p>A exclusão de um produto encerra a suíte de testes de mutação de dados.</p>
+
+        <ol>
+            <li>No arquivo <code>python_3/delete_item.py</code>, a query <code>DELETE FROM beans WHERE id=14</code> remove o registro selecionado e purga a chave <code>all_beans</code> do Memcached.</li>
+            <li>Configure os endpoints, salve e execute:
+                <pre><code>python3 delete_item.py</code></pre>
+                <pre><code>Deleting a bean item
+1 record(s) deleted from RDS.
+FLUSH the CACHE as it is stale
+Purged the cache: True</code></pre>
+            </li>
+        </ol>
+
+        <hr>
+
+        <h3>Tarefa 8: Atualização do Contêiner da Aplicação Node.js com Cache Integrado</h3>
+        <p>Com a Prova de Conceito validada, você atuará no papel de <strong>Nikhil</strong> para atualizar o código de produção em Node.js (Express) do aplicativo de fornecedores de café, gerando uma nova versão do contêiner Docker no Amazon ECR e configurando o Elastic Beanstalk com a variável <code>MEMC_HOST</code>.</p>
+
+        <ol>
+            <li>Abra o arquivo <code>resources/bean.controller_2.js</code> no VS Code e analise as otimizações implementadas por Nikhil:
+                <pre><code>const memcachedHost = process.env.MEMC_HOST || "localhost";
+const memcachedPort = '11211';
+const cacheTtlInSec = 300;
+
+// Exibição visual de procedência da resposta
+return res.render("bean-list-all", {beans: JSON.parse(data), cache_msg: "results from Cache"});
+res.render("bean-list-all", {beans: data, cache_msg: "results from Db"});
+
+// Otimização Granular: cache por item individual
+memcached.set('beans_' + data.id, JSON.stringify(data), cacheTtlInSec, function (err) { ... });</code></pre>
+                <div class="callout-dica">
+                    <strong>Vantagem do Cache Granular:</strong> Armazenar itens individuais com chaves específicas (<code>beans_&lt;id&gt;</code>) reduz drasticamente o tráfego de rede e consumo de RAM quando a aplicação precisa exibir apenas um produto específico (<code>findOne</code>), em vez de transferir todo o catálogo de grãos.
+                </div>
+            </li>
+            <li>Substitua o arquivo de controle original pelo novo código:
+                <pre><code>mv ~/environment/resources/bean.controller_2.js ~/environment/resources/codebase_partner/app/controller/bean.controller.js</code></pre>
+            </li>
+            <li>Recompile a imagem Docker:
+                <pre><code>cd ~/environment/resources/codebase_partner/
+npm install
+docker build --tag node_app .</code></pre>
+            </li>
+            <li>Autentique o Docker no Amazon ECR:
+                <p>No console da AWS, clique no nome de usuário no canto superior direito e copie o ID da sua conta AWS de 12 dígitos. No terminal, execute:</p>
+                <pre><code>aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin &lt;account-id&gt;.dkr.ecr.us-east-1.amazonaws.com</code></pre>
+            </li>
+            <li>Obtenha o URI do repositório ECR e faça o push da nova imagem:
+                <pre><code>aws ecr describe-repositories --query repositories[][repositoryUri] --output text</code></pre>
+                <pre><code>docker tag node_app:latest &lt;repository-uri&gt;:latest
+docker push &lt;repository-uri&gt;:latest</code></pre>
+            </li>
+            <li>Configure a variável de ambiente <code>MEMC_HOST</code> no <strong>AWS Elastic Beanstalk</strong>:
+                <ul>
+                    <li>Acesse o console do <strong>Elastic Beanstalk</strong> e clique no ambiente <code>MyEnv</code>.</li>
+                    <li>No menu lateral esquerdo, selecione <strong>Configuração</strong>.</li>
+                    <li>Na categoria <em>Atualizações, monitoramentos e registros em log</em>, clique em <strong>Editar</strong>.</li>
+                    <li>Role até <strong>Propriedades do ambiente</strong> e adicione:
+                        <ul>
+                            <li><strong>Nome:</strong> <code>MEMC_HOST</code></li>
+                            <li><strong>Valor:</strong> Endpoint de configuração do Memcached (anotado na Tarefa 4).</li>
+                        </ul>
+                    </li>
+                    <li>Clique em <strong>Aplicar</strong> e aguarde a atualização do ambiente.</li>
+                </ul>
+            </li>
+            <li>Validação da Aplicação Web do Elastic Beanstalk:
+                <ul>
+                    <li>Abra a URL do Elastic Beanstalk terminada em <code>/beans</code>.</li>
+                    <li>No primeiro carregamento, a nota abaixo de <em>All beans</em> exibirá: <code>results from Db</code>.</li>
+                    <li>Recarregue a página (F5): a nota mudará instantaneamente para <code>results from Cache</code>, evidenciando que a resposta foi servida em sub-milissegundos pelo Memcached!</li>
+                </ul>
+            </li>
+            <li>Validação no Site da Cafeteria (S3):
+                <ul>
+                    <li>Abra a URL de hospedagem estática do bucket S3 da cafeteria.</li>
+                    <li>Navegue até a seção <strong>Buy Coffee</strong>. O inventário de grãos de café carregará de maneira fluida e instantânea!</li>
+                </ul>
+            </li>
+        </ol>
+
+        <hr>
+
+        <h3>Conclusão do Laboratório e Atualização da Cafeteria</h3>
+        <p>Parabéns! Você concluiu com sucesso a implementação completa do Amazon ElastiCache for Memcached na arquitetura da cafeteria:</p>
+
+        <div class="callout-dica">
+            <strong>Síntese dos Benefícios de Performance Alcançados:</strong><br>
+            • <strong>Queda Radical de Latência:</strong> A recuperação do catálogo de grãos migrou de múltiplos segundos via disco/banco relacional para dezenas de milissegundos via memória RAM.<br>
+            • <strong>Desacoplamento e Resiliência:</strong> O cluster ElastiCache roda de forma independente das instâncias EC2 da aplicação, permitindo escalabilidade horizontal sem perda de dados voláteis.<br>
+            • <strong>Padrões de Engenharia Robustos:</strong> Você implementou o padrão <strong>Lazy Loading (Cache-Aside)</strong> com controle de expiração (TTL) e políticas ativas de <strong>invalidação em operações de mutação</strong>, assegurando que o catálogo de café permaneça sempre sincronizado com a base Aurora Serverless.<br>
+            • <strong>Próximo Passo no Módulo 9:</strong> Com o cache de banco de dados resolvido no backend, avançaremos para a aceleração de rede e entrega de conteúdo na borda com o <strong>Amazon CloudFront</strong>!
+        </div>
+    </div>
+
+
+    <hr>
+
+    <span class="anchor-h2" id="mod9-caching-cloudfront"></span>
+    <h2>4. Caching with CloudFront</h2>
+
+    <h4>O <strong>Amazon CloudFront</strong> é a Content Delivery Network (CDN) global e gerenciada da AWS, projetada para distribuir conteúdos estáticos (HTML, CSS, imagens, arquivos JS), conteúdos dinâmicos, vídeos sob demanda e transmissões ao vivo com latência mínima, alta segurança e roteamento otimizado através de centenas de Pontos de Presença (<em>Edge Locations</em>) espalhados pelo mundo.</h4>
+
+    <h3>Acelerador de Transferência do Amazon S3 (S3 Transfer Acceleration)</h3>
+    <p>O Amazon CloudFront não serve apenas para entregar conteúdo aos usuários que navegam no site (leitura e download); a infraestrutura global da CDN também é utilizada para <strong>acelerar drasticamente o envio (upload) de arquivos pesados</strong> para a nuvem da AWS através do recurso <strong>S3 Transfer Acceleration</strong>.</p>
+
+    <ul>
+        <li><strong>O Problema da Internet Pública:</strong> Se um cliente corporativo ou aplicativo no Japão tentar fazer o upload de um arquivo volumoso de 10 GB diretamente para um bucket Amazon S3 localizado em uma Região nos Estados Unidos (ex: <code>us-east-1</code>), os pacotes de dados terão que percorrer milhares de quilômetros pela internet pública. Ao atravessar múltiplos roteadores de provedores terceirizados não confiáveis, o upload sofrerá com altíssima latência, oscilações de banda e elevado risco de perda e retransmissão de pacotes.</li>
+        <li><strong>A Solução com CloudFront:</strong> Com o S3 Transfer Acceleration habilitado, o cliente no Japão não envia o arquivo diretamente para os EUA; ele faz o upload para a <strong>Edge Location do CloudFront mais próxima</strong>, localizada em Tóquio. Assim que os dados alcançam a borda da AWS em Tóquio, o tráfego é roteado até o bucket S3 nos EUA exclusivamente através da <strong>rede de fibra óptica privada, dedicada e monitorada da própria AWS</strong>. Essa rota privada é otimizada em nível de protocolo e drasticamente mais rápida, confiável e segura que a internet pública.</li>
+    </ul>
+
+    <h3>Customizando na Borda (Edge Computing)</h3>
+    <p>Em um modelo tradicional de CDN, o CloudFront atua de forma puramente intermediária: recebe uma requisição, verifica se o arquivo está no cache de borda e, se não estiver, busca na origem e repassa ao cliente. Contudo, em aplicações modernas, surge frequentemente a necessidade de <strong>executar lógica de programação diretamente na borda</strong> antes que a requisição toque a origem ou antes que a resposta chegue ao usuário final (por exemplo: validar se o cliente possui um token JWT de autenticação, redirecioná-lo para páginas com base em seu país de acesso, injetar cabeçalhos de segurança ou reescrever URLs).</p>
+    <p>Para viabilizar processamento na borda (<em>Edge Computing</em>) próximo ao usuário, a AWS oferece duas tecnologias complementares:</p>
+
+    <div class="callout-dica">
+        <strong>1. CloudFront Functions: O Leve, Econômico e Ultrarrápido</strong><br>
+        • <strong>O que é:</strong> Um recurso nativo integrado diretamente em todas as mais de 450+ Edge Locations do CloudFront, projetado para executar scripts compactos em <strong>JavaScript</strong> com latência sub-milissegundo.<br>
+        • <strong>Casos de Uso Ideais:</strong> Tarefas leves de manipulação de requisições, como normalização de URLs (ex: converter toda a URL para minúsculas antes de consultar a chave de cache para maximizar <em>Cache Hits</em>), manipulação simples de cabeçalhos HTTP (adicionar <code>Strict-Transport-Security</code>, <code>X-Content-Type-Options</code>), redirecionamentos de rota simples e controle básico de cookies.<br>
+        • <strong>Limitações Técnicas:</strong>
+        <ul>
+            <li>Tempo máximo de execução <strong>inferior a 1 milissegundo</strong>.</li>
+            <li><strong>Sem acesso à internet</strong> (não pode invocar APIs externas, webhooks ou microsserviços).</li>
+            <li>Não tem acesso ao corpo da requisição HTTP (<code>body</code>).</li>
+            <li>Não suporta bibliotecas externas nem o AWS SDK.</li>
+            <li><strong>Custo Reduzido:</strong> Custa aproximadamente <strong>1/6 do valor</strong> do Lambda@Edge.</li>
+        </ul>
+    </div>
+
+    <div class="callout-alerta">
+        <strong>2. Lambda@Edge: O Robusto e Poderoso</strong><br>
+        • <strong>O que é:</strong> O serviço AWS Lambda tradicional implantado na camada de <strong>Caches Regionais do CloudFront (Regional Edge Caches)</strong> espalhados globalmente. Oferece suporte completo aos runtimes de <strong>Node.js</strong> e <strong>Python</strong>.<br>
+        • <strong>Casos de Uso Ideais:</strong> Lógica de negócio completa e avançada na borda. Pode inspecionar e modificar o corpo inteiro da requisição HTTP (o <code>body</code>), processar fluxos de autenticação complexos (como validação profunda de OAuth/OpenID Connect) e consultar dinamicamente bancos de dados externos (como chamadas de API para o Amazon DynamoDB ou RDS).<br>
+        • <strong>Limitações e Características:</strong>
+        <ul>
+            <li>Tempo de execução superior (pode durar vários milissegundos ou até segundos).</li>
+            <li>Possui acesso completo à rede/internet e a todas as bibliotecas do AWS SDK.</li>
+            <li>Custo por execução maior que o CloudFront Functions, sendo reservado para tarefas onde o poder computacional na borda é essencial.</li>
+        </ul>
+    </div>
+
+    <h4>Tabela Comparativa: CloudFront Functions vs. Lambda@Edge (Foco em Certificação AWS)</h4>
+    <table>
+        <thead>
+            <tr>
+                <th>Característica</th>
+                <th>CloudFront Functions</th>
+                <th>Lambda@Edge</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>Linguagens Suportadas</strong></td>
+                <td>Apenas JavaScript (ECMAScript 5.1+)</td>
+                <td>Node.js e Python completos</td>
+            </tr>
+            <tr>
+                <td><strong>Onde Executa</strong></td>
+                <td>Em todas as <strong>Edge Locations</strong> (borda mais próxima)</td>
+                <td>Nos <strong>Regional Edge Caches</strong> globais</td>
+            </tr>
+            <tr>
+                <td><strong>Tempo Máximo de Execução</strong></td>
+                <td><strong>&lt; 1 milissegundo</strong> (sub-milissegundo)</td>
+                <td>Até 5 segundos (viewer) ou 30 segundos (origin)</td>
+            </tr>
+            <tr>
+                <td><strong>Acesso à Rede / Internet</strong></td>
+                <td><strong>Não</strong> (isolado sem acesso externo)</td>
+                <td><strong>Sim</strong> (pode chamar APIs externas e AWS SDK)</td>
+            </tr>
+            <tr>
+                <td><strong>Acesso ao Corpo da Requisição (Body)</strong></td>
+                <td>Não (apenas URL, headers, cookies, query strings)</td>
+                <td><strong>Sim</strong> (pode ler, validar e alterar o body HTTP)</td>
+            </tr>
+            <tr>
+                <td><strong>Custo Relativo</strong></td>
+                <td>Extremamente baixo (~1/6 do Lambda@Edge)</td>
+                <td>Moderado (tarifado por GB-segundo e requisições)</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="callout-dica">
+        <strong>Resumo dos Pontos-Chave da Seção 4 (Key Takeaways):</strong><br>
+        • <strong>Papel da CDN:</strong> O CloudFront entrega conteúdos com baixíssima latência aproximando fisicamente os dados dos usuários.<br>
+        • <strong>Cache Key (Chave de Cache):</strong> É o identificador único (composto pela URL, parâmetros de query string ou cabeçalhos selecionados) que o CloudFront utiliza para indexar e encontrar o objeto em sua memória de borda.<br>
+        • <strong>S3 Transfer Acceleration:</strong> Aproveita a malha de fibra óptica privada da AWS para acelerar uploads de longa distância.<br>
+        • <strong>Edge Computing:</strong> CloudFront Functions para tarefas ultrarrápidas de cabeçalho/URL; Lambda@Edge para lógica avançada com acesso a dados e autenticação pesada.
+    </div>
+
+    <hr>
+
+    <span class="anchor-h2" id="mod9-caching-strategies"></span>
+    <h2>5. Caching strategies</h2>
+
+    <h4>Em arquitetura de software para sistemas em nuvem, colocar dados na memória RAM é apenas o primeiro passo. O verdadeiro diferencial de engenharia reside em definir o padrão de atualização e consistência entre o cache em memória (como o Amazon ElastiCache) e a base persistente de dados (como Amazon Aurora).</h4>
+
+    <p>Existem dois padrões fundamentais de design que todo arquiteto e desenvolvedor deve dominar e programar na aplicação:</p>
+
+    <h3>1. Lazy Loading (Carregamento Preguiçoso / Cache-Aside)</h3>
+    <p><strong>A Lógica de Operação:</strong> É uma estratégia <strong>reativa</strong>. O cache inicia vazio e só é abastecido no momento exato em que algum usuário tenta ler o dado. O fluxo de código segue a ordem:</p>
+    <ol>
+        <li>A aplicação pesquisa primeiro no cache pelo identificador da chave.</li>
+        <li>Se não encontrar (<strong>Cache Miss</strong>), a aplicação recorre ao banco de dados relacional lento.</li>
+        <li>A aplicação obtém o dado do banco e <strong>grava uma cópia no cache</strong> antes de responder ao cliente, garantindo que as próximas requisições encontrem o dado já em memória (<strong>Cache Hit</strong>).</li>
+    </ol>
+
+    <ul>
+        <li><strong>Vantagens:</strong>
+            <ul>
+                <li><strong>Eficiência de Memória:</strong> O cache nunca fica sobrecarregado com dados desnecessários; apenas os registros efetivamente requisitados pelos usuários consomem espaço na memória RAM.</li>
+                <li><strong>Resiliência a Falhas de Nó:</strong> Se um nó do ElastiCache falhar, travar ou reiniciar totalmente vazio, o sistema não entra em colapso. A aplicação simplesmente experimentará uma sequência inicial de <em>Cache Misses</em> temporários, e o cache se reabastecerá gradualmente de forma autônoma sob demanda.</li>
+            </ul>
+        </li>
+        <li><strong>Desvantagens:</strong>
+            <ul>
+                <li><strong>Penalidade do Miss (<em>Miss Penalty</em>):</strong> O primeiro usuário que solicitar um determinado produto ou dado sofrerá lentidão perceptível, pois a aplicação terá que aguardar as três etapas de rede (consultar cache &rarr; consultar banco &rarr; gravar no cache).</li>
+                <li><strong>Risco de Dados Obsoletos (<em>Stale Data</em>):</strong> Se um dado for modificado diretamente no banco de dados e a chave no cache ainda for válida (com um TTL longo), os usuários continuarão recebendo a versão antiga e desatualizada do dado até que a chave expire.</li>
+            </ul>
+        </li>
+        <li><strong>Caso de Uso Ideal:</strong> <em>Perfil de Usuário</em>. Um usuário altera sua própria foto de perfil ou biografia pouquíssimas vezes por ano, mas sua página de perfil pode ser acessada milhares de vezes por amigos ou seguidores ao longo do dia.</li>
+    </ul>
+
+    <h3>2. Write-Through (Gravação Direta)</h3>
+    <p><strong>A Lógica de Operação:</strong> É uma estratégia <strong>proativa</strong>. Toda vez que uma gravação ou alteração é realizada no banco de dados (operações de escrita como <code>INSERT</code> ou <code>UPDATE</code>), a aplicação é programada para forçar obrigatoriamente e simultaneamente a gravação dessa mesma alteração dentro do cache de memória.</p>
+
+    <ul>
+        <li><strong>Vantagens:</strong>
+            <ul>
+                <li><strong>Dados Sempre Atualizados:</strong> O cache reflete em tempo real o estado exato da fonte canônica de dados, eliminando o risco de leituras com dados desatualizados (<em>zero stale data</em>).</li>
+            </ul>
+        </li>
+        <li><strong>Desvantagens:</strong>
+            <ul>
+                <li><strong>Penalidade de Gravação (<em>Write Penalty</em>):</strong> Salvar dados torna-se ligeiramente mais demorado, pois a aplicação precisa completar o commit em dois armazenamentos físicos distintos (banco de dados e cache) antes de devolver a resposta de sucesso ao usuário.</li>
+                <li><strong>Desperdício de Espaço de RAM (<em>Cache Bloat</em>):</strong> Se o sistema gravar no cache registros ou itens novos que ninguém irá ler no futuro, a memória RAM ficará ocupada com dados inúteis, gerando custo financeiro desnecessário.</li>
+                <li><strong>Risco de Falha do Nó:</strong> Se um nó de cache reiniciar ou for substituído por um nó vazio, aquele dado novo não estará no cache até que ocorra uma nova operação de gravação no banco de dados (exigindo que você implemente o <em>Lazy Loading</em> em paralelo como mecanismo de contingência para leituras).</li>
+            </ul>
+        </li>
+        <li><strong>Caso de Uso Ideal:</strong> <em>Dados Críticos em Tempo Real</em>. Exemplo: Placar de líderes mundial (Top 100 Leaderboard) de um jogo online multijogador, contadores de curtidas ao vivo de notícias de última hora ou atualizações críticas de estoque em promoções relâmpago da cafeteria.</li>
+    </ul>
+
+    <h4>Tabela Comparativa: Lazy Loading vs. Write-Through</h4>
+    <table>
+        <thead>
+            <tr>
+                <th>Critério</th>
+                <th>Lazy Loading (Cache-Aside)</th>
+                <th>Write-Through</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>Natureza do Fluxo</strong></td>
+                <td>Reativo (orientado à <strong>Leitura</strong>)</td>
+                <td>Proativo (orientado à <strong>Escrita</strong>)</td>
+            </tr>
+            <tr>
+                <td><strong>Momento da Carga</strong></td>
+                <td>Apenas quando o dado é solicitado pela 1ª vez</td>
+                <td>Imediatamente na criação/atualização do registro</td>
+            </tr>
+            <tr>
+                <td><strong>Uso de Memória RAM</strong></td>
+                <td>Otimizado (apenas dados requisitados ocupam espaço)</td>
+                <td>Maior (pode inflar o cache com dados nunca lidos)</td>
+            </tr>
+            <tr>
+                <td><strong>Latência na Leitura</strong></td>
+                <td>Lenta no 1º acesso (Miss); instantânea nos seguintes</td>
+                <td><strong>Sempre instantânea</strong> (dado já pré-carregado)</td>
+            </tr>
+            <tr>
+                <td><strong>Latência na Gravação</strong></td>
+                <td>Nenhuma penalidade extra na escrita</td>
+                <td>Penalidade de gravação dupla (Banco + Cache)</td>
+            </tr>
+            <tr>
+                <td><strong>Risco de Dados Obsoletos</strong></td>
+                <td>Sim (mitigado definindo um bom TTL)</td>
+                <td><strong>Nulo</strong> (dados sempre sincronizados)</td>
+            </tr>
+            <tr>
+                <td><strong>Comportamento se Nó Cair</strong></td>
+                <td>Recupera-se sozinho gradualmente com leituras</td>
+                <td>Exige Lazy Loading como mecanismo de contingência</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="callout-alerta">
+        <strong>Resumo dos Pontos-Chave da Seção 5 (Key Takeaways):</strong><br>
+        • <strong>Lazy Loading:</strong> Foca na leitura. Excelente para economia de memória RAM, mas exige lidar com dados desatualizados através de uma calibração precisa do tempo de expiração (<strong>TTL - Time To Live</strong>).<br>
+        • <strong>Write-Through:</strong> Foca na gravação. Garante consistência imediata sincronizando a escrita. Causa uma pequena penalidade na gravação, mas garante leitura instantânea com 100% de precisão.<br>
+        • <strong>A Arquitetura Ideal (Padrão Híbrido):</strong> Sistemas corporativos de alta criticidade (como grandes e-commerces) geralmente mesclam os dois padrões: aplicam <strong>Lazy Loading com TTL</strong> para o catálogo geral de produtos e navegação histórica, e utilizam <strong>Write-Through</strong> para o estoque em tempo real das promoções do dia!
+    </div>
+
+
+    <hr>
+
+    <span class="anchor-h2" id="mod9-lab2"></span>
+    <div class="lab-section">
+        <h2>Lab 9.2: Implementing CloudFront for Caching and Application Security</h2>
+
+        <h3>Visão Geral e Objetivos do Laboratório</h3>
+        <p>Neste laboratório prático avançado, você projetará e implementará uma infraestrutura de distribuição global de conteúdo e segurança perimetral na AWS. Você criará uma distribuição do <strong>Amazon CloudFront</strong> para reduzir a latência de rede dos clientes da cafeteria e habilitar a entrega segura de todo o site estático via <strong>HTTPS</strong> com terminação TLS/SSL. Em seguida, implementará regras de segurança com o <strong>AWS WAF (Web Application Firewall)</strong> em duas camadas distintas: protegendo a CDN globalmente e blindando os endpoints REST do <strong>Amazon API Gateway</strong> regionalmente. Por fim, você criará uma <strong>CloudFront Function</strong> na borda (<em>Edge Computing</em>) para customizar dinamicamente a interface do usuário via cookies sem quebrar o cache estático, e calibrará o tempo de expiração dos objetos (TTL) através dos metadados <code>Cache-Control</code> no <strong>Amazon S3</strong>.</p>
+
+        <h4>Principais Objetivos de Aprendizado:</h4>
+        <ul>
+            <li>Criar e configurar uma distribuição do <strong>Amazon CloudFront</strong> integrada ao Amazon S3 como origem protegida.</li>
+            <li>Migrar o acesso web de HTTP puro para conexões criptografadas de alta velocidade com <strong>HTTPS</strong> nativo.</li>
+            <li>Impor restrição de acesso por endereço IP na borda global do CloudFront utilizando <strong>AWS WAF (Global Web ACL)</strong>.</li>
+            <li>Proteger os endpoints da API REST no <strong>Amazon API Gateway</strong> contra acessos externos não autorizados utilizando <strong>AWS WAF (Regional Web ACL)</strong>.</li>
+            <li>Desenvolver, testar e publicar uma <strong>CloudFront Function</strong> em JavaScript executada no evento <code>Viewer Response</code> para alternar dinamicamente a sobremesa em destaque na página inicial.</li>
+            <li>Ajustar cabeçalhos de controle de cache (<code>Cache-Control: max-age</code>) no Amazon S3 via AWS CLI e analisar os cabeçalhos de resposta HTTP da CDN (<code>x-cache: Hit</code>, <code>Miss</code> e <code>RefreshHit</code>).</li>
+        </ul>
+
+        <div class="callout-dica">
+            <strong>Duração Estimada:</strong> 90 minutos<br>
+            <strong>Restrições de Serviço AWS:</strong> O acesso aos serviços neste laboratório é estritamente limitado aos recursos necessários (CloudFront, AWS WAF, S3, API Gateway, Lambda, DynamoDB, Elastic Beanstalk e CloudFormation). Tentativas de criar instâncias fora do escopo resultarão em erros de permissão.
+        </div>
+
+        <h3>Cenário de Negócios: Performance Global, HTTPS e Proteção de Perímetro</h3>
+        <p>Sofía fez um progresso notável na modernização do site da cafeteria: a camada de dados foi acelerada pelo Amazon ElastiCache (Memcached) e os microsserviços rodam de forma elástica no Elastic Beanstalk e Aurora Serverless. No entanto, duas deficiências críticas de produção ainda precisam ser resolvidas:</p>
+        <ol>
+            <li><strong>Protocolo Inseguro:</strong> O site ainda opera em HTTP simples (através de URLs de objeto direto do S3: <code>http://&lt;bucket&gt;.s3.amazonaws.com/index.html</code>). Navegadores modernos marcam o site como "Não Seguro" e o tráfego não possui criptografia em trânsito.</li>
+            <li><strong>Latência Global:</strong> Usuários distantes da Região principal da AWS sofrem com atrasos no download de imagens e scripts. A cafeteria necessita de uma CDN (Content Delivery Network) com Pontos de Presença (<em>Edge Locations</em>) próximos aos clientes em todo o mundo.</li>
+        </ol>
+
+        <p>Além disso, durante a atual fase de desenvolvimento, Frank solicitou que <strong>apenas a rede do escritório da cafeteria</strong> (o endereço IP de Sofía) possa acessar o site e as APIs, impedindo vazamentos ou acessos públicos prematuros. Por fim, Frank deseja um recurso visual atrativo: <strong>exibir uma imagem promocional aleatória de sobremesa</strong> a cada carregamento de página, sem sobrecarregar a aplicação nem impedir o cache estático do HTML.</p>
+
+        <div class="callout-alerta">
+            <strong>Evolução da Arquitetura:</strong><br>
+            • <strong>Início do Laboratório:</strong> Site estático acessado diretamente no S3 via HTTP desprotegido; API REST aberta a qualquer IP na internet.<br>
+            • <strong>Arquitetura Final:</strong> Distribuição CloudFront com HTTPS &rarr; AWS WAF Global filtrando IPs na borda &rarr; CloudFront Function injetando cookies de sobremesa no <em>Viewer Response</em> &rarr; Amazon S3 com acesso restrito e TTL calibrado; e AWS WAF Regional blindando o Amazon API Gateway!
+        </div>
+
+        <hr>
+
+        <h3>Tarefa 1: Preparação do Ambiente de Desenvolvimento</h3>
+        <p>Nesta etapa inicial, você verificará a conclusão da pilha do AWS CloudFormation, conectará ao VS Code IDE e executará o script de automação para restaurar os recursos dos laboratórios anteriores.</p>
+
+        <ol>
+            <li>No AWS Management Console, acesse o <strong>CloudFormation</strong> &gt; <strong>Stacks (Pilhas)</strong>.</li>
+            <li>Confira se a pilha com <code>ACD_2.0</code> na descrição está com o status <strong>CREATE_COMPLETE</strong>. (Aguarde sua conclusão caso ainda esteja em andamento, pois ela provisiona instâncias RDS e recursos de suporte).</li>
+            <li>Conecte-se ao <strong>VS Code IDE</strong> utilizando a URL (<code>LabIDEURL</code>) fornecida nos detalhes do laboratório.</li>
+            <li>No terminal Bash do VS Code, baixe e extraia o pacote de arquivos do laboratório:
+                <pre><code>wget https://aws-tc-largeobjects.s3.us-west-2.amazonaws.com/CUR-TF-200-ACCDEV-2-91558/09-lab-cloudfront/code.zip -P /home/ec2-user/environment
+cd /home/ec2-user/environment
+unzip code.zip</code></pre>
+            </li>
+            <li>Conceda permissão e execute o script de inicialização informando seu IP público da internet (obtido em <em>whatismyipaddress.com</em>):
+                <pre><code>chmod +x ./resources/setup.sh && ./resources/setup.sh</code></pre>
+                <p>O script restaura o bucket S3 da cafeteria, a tabela DynamoDB do cardápio, a API REST no API Gateway, a função Lambda, o cluster Memcached, o contêiner no ECR e a aplicação Elastic Beanstalk.</p>
+            </li>
+            <li>Confirme as versões da CLI e Boto3:
+                <pre><code>aws --version
+pip3 show boto3</code></pre>
+            </li>
+            <li>Inspecione os metadados dos arquivos no Amazon S3:
+                <ul>
+                    <li>No console do S3, abra o bucket com sufixo <code>-s3bucket</code> e clique no arquivo <code>index.html</code>.</li>
+                    <li>Na seção <strong>Metadados</strong>, observe a propriedade <code>Cache-Control</code> com valor <code>max-age=0</code>. Esse valor foi injetado pelo script para evitar cache durante a inicialização, garantindo que qualquer alteração fosse vista imediatamente.</li>
+                    <li>Abra a URL do objeto S3 em uma nova aba do navegador para confirmar que o site inicial está acessível via HTTP. Mantenha essa aba aberta.</li>
+                </ul>
+            </li>
+        </ol>
+
+        <hr>
+
+        <h3>Tarefa 2: Configuração de uma Distribuição CloudFront para o Site Estático</h3>
+        <p>O Amazon S3 puro não oferece suporte nativo a certificados SSL/TLS customizados para sites estáticos. O CloudFront resolve esse problema atuando como a fachada de borda oficial da cafeteria, distribuindo os objetos em alta velocidade e com criptografia HTTPS.</p>
+
+        <ol>
+            <li>No console da AWS, navegue até o serviço <strong>CloudFront</strong> e clique em <strong>Create distribution (Criar distribuição)</strong>.</li>
+            <li>Selecione o plano <em>Pagar conforme o uso</em> (se solicitado) e defina as configurações:
+                <ul>
+                    <li><strong>Nome da distribuição:</strong> <code>access-identity-cafe-website</code></li>
+                    <li><strong>Tipo de distribuição:</strong> <em>Single website or app</em> (Site ou aplicativo único).</li>
+                    <li><strong>Tipo de origem:</strong> <strong>Amazon S3</strong>.</li>
+                    <li><strong>Origem do S3:</strong> Clique em <em>Procurar S3</em> e selecione o bucket com <code>-s3bucket</code> no nome.</li>
+                    <li><strong>Configurações de origem &gt; Personalizar configurações:</strong> Clique em <em>Add header</em> e adicione:
+                        <ul>
+                            <li>Header name: <code>cf</code></li>
+                            <li>Value: <code>1</code></li>
+                        </ul>
+                    </li>
+                    <li><strong>Configurações de cache:</strong> <em>Customize cache settings</em>.</li>
+                    <li><strong>Habilitar segurança (WAF):</strong> Avance sem habilitar neste momento (configuraremos o WAF manualmente na próxima tarefa).</li>
+                </ul>
+                Clique em <strong>Create distribution</strong>.
+            </li>
+            <li>Ajuste as configurações raiz da distribuição:
+                <ul>
+                    <li>Na página de detalhes da distribuição recém-criada, clique em <strong>Editar</strong> nas configurações gerais.</li>
+                    <li><strong>Default root object (Objeto-raiz padrão):</strong> Insira <code>index.html</code>.</li>
+                    <li><strong>IPv6:</strong> Desativado (<em>Off</em>).</li>
+                    <li>Clique em <strong>Salvar alterações</strong>.</li>
+                </ul>
+            </li>
+            <li>Atualize a Política do Bucket S3 para Bloquear Acesso Direto:
+                <ul>
+                    <li>No console do S3, acesse a aba <strong>Permissões</strong> do bucket da cafeteria e edite a <strong>Política do bucket</strong>.</li>
+                    <li>Remova as instruções que concediam <code>s3:GetObject</code> público ou baseado no seu IP. Salve as alterações.</li>
+                    <li>Retorne à aba onde o site estava aberto via URL do S3 e recarregue a página (F5): a página exibirá o erro <code>AccessDenied</code>. <strong>Este resultado é esperado e correto</strong>: ninguém mais deve acessar o site desprotegido direto pelo S3.</li>
+                </ul>
+            </li>
+            <li>Teste o Acesso HTTPS via CloudFront:
+                <ul>
+                    <li>No console do CloudFront, aguarde o status da distribuição mudar para <strong>Enabled (Ativado)</strong>.</li>
+                    <li>Copie o <strong>Distribution domain name</strong> (formato <code>https://dxxxxxxxxxx.cloudfront.net</code>) e abra-o em uma nova aba.</li>
+                    <li>O site da cafeteria carregará perfeitamente, com cadeado de segurança verde atestando a criptografia <strong>HTTPS</strong>!</li>
+                    <li>Teste abrir a URL em um celular via rede 4G/móvel ou execute <code>wget &lt;distribution-domain-name&gt;</code> no terminal do IDE: o site está acessível globalmente.</li>
+                </ul>
+            </li>
+        </ol>
+
+        <hr>
+
+        <h3>Tarefa 3: Proteção do Acesso de Rede à Distribuição usando AWS WAF (Global)</h3>
+        <p>Agora que o site está no CloudFront, qualquer pessoa na internet com a URL poderia acessá-lo. Para restringir o acesso exclusivamente ao endereço IP do escritório da cafeteria durante o desenvolvimento, utilizaremos o <strong>AWS WAF</strong> com escopo <strong>Global (CloudFront)</strong>.</p>
+
+        <ol>
+            <li>No console da AWS, acesse o serviço <strong>WAF &amp; Shield</strong>.</li>
+            <li>Crie o Conjunto de IPs Global:
+                <ul>
+                    <li>No menu lateral, selecione <strong>Conjuntos de IPs (IP sets)</strong> &gt; <strong>Create IP set</strong>.</li>
+                    <li><strong>Nome:</strong> <code>office</code> | <strong>Descrição:</strong> <code>office IP</code></li>
+                    <li><strong>Região:</strong> <strong>Global (CloudFront)</strong>.</li>
+                    <li><strong>Endereços IP:</strong> Insira seu endereço IPv4 público seguido de <code>/32</code> (ex: <code>203.0.113.45/32</code>).</li>
+                    <li>Clique em <strong>Criar conjunto de IP</strong>.</li>
+                </ul>
+            </li>
+            <li>Crie a Web ACL Global para o CloudFront:
+                <ul>
+                    <li>No menu lateral, selecione <strong>ACLs Web (Web ACLs)</strong> &gt; <strong>Criar ACL da web</strong>.</li>
+                    <li><strong>Tipo de recurso:</strong> <strong>CloudFront distributions</strong>.</li>
+                    <li><strong>Nome:</strong> <code>cafe-website-office-only-during-dev</code></li>
+                    <li><strong>Recursos associados da AWS:</strong> Clique em <em>Add AWS resources</em> e selecione a distribuição CloudFront criada na Tarefa 2.</li>
+                    <li>Na etapa <em>Add rules</em>, selecione <strong>Add my own rules and rule groups</strong>:
+                        <ul>
+                            <li>Tipo de regra: <strong>IP set</strong>.</li>
+                            <li>Nome da regra: <code>only_office_please</code></li>
+                            <li>IP set: Selecione o conjunto <code>office</code>.</li>
+                            <li>Endereço IP de origem: <em>Source IP address</em>.</li>
+                            <li>Ação: <strong>Allow (Permitir)</strong>.</li>
+                        </ul>
+                    </li>
+                    <li><strong>Default web ACL action (Ação padrão):</strong> Defina como <strong>Block (Bloquear)</strong>. Isso garante que qualquer requisição originada de um IP fora do conjunto <code>office</code> seja sumariamente bloqueada!</li>
+                    <li>Avance mantendo as métricas padrão e clique em <strong>Create web ACL</strong>.</li>
+                </ul>
+            </li>
+            <li>Validação Prática da Proteção Perimetral:
+                <ul>
+                    <li>No seu computador (mesmo IP cadastrado), recarregue a URL do CloudFront: o site continua acessível normalmente (200 OK).</li>
+                    <li>No seu smartphone conectado na rede móvel 4G (ou via terminal do VS Code IDE executando <code>wget https://&lt;distribution-domain&gt;.cloudfront.net</code>): a requisição é interceptada na borda pelo WAF e retorna <strong>HTTP 403 Forbidden</strong>!</li>
+                </ul>
+            </li>
+        </ol>
+
+        <hr>
+
+        <h3>Tarefa 4: Proteção de um Endpoint da API REST usando AWS WAF (Regional)</h3>
+        <p>O site estático está protegido na borda, mas as chamadas AJAX do frontend consultam a API REST no Amazon API Gateway diretamente. Para impedir invocações diretas não autorizadas aos dados de estoque, criaremos uma Web ACL com escopo <strong>Regional</strong> associada ao estágio de produção da API.</p>
+
+        <ol>
+            <li>No console do <strong>WAF &amp; Shield</strong>, acesse <strong>Conjuntos de IPs</strong> e clique em <strong>Create IP set</strong>:
+                <ul>
+                    <li><strong>Nome:</strong> <code>office_regional</code></li>
+                    <li><strong>Região:</strong> <strong>US East (N. Virginia)</strong> (região onde o API Gateway está implantado).</li>
+                    <li><strong>Endereços IP:</strong> Seu IP público seguido de <code>/32</code>.</li>
+                    <li>Clique em <strong>Criar conjunto de IP</strong>.</li>
+                </ul>
+            </li>
+            <li>Crie a Web ACL Regional:
+                <ul>
+                    <li>Vá em <strong>Web ACLs</strong> &gt; <strong>Criar ACL da web</strong>.</li>
+                    <li><strong>Tipo de recurso:</strong> <strong>Regional resources</strong> (US East - N. Virginia).</li>
+                    <li><strong>Nome:</strong> <code>website-api-gw-office-only-during-dev</code></li>
+                    <li><strong>Recursos associados:</strong> Selecione <em>Amazon API Gateway</em> &rarr; <code>ProductsApi - prod</code>.</li>
+                    <li><strong>Adicionar Regras:</strong> Adicione uma regra do tipo <em>IP set</em> chamada <code>ip_for_apigw</code> vinculada ao IP set <code>office_regional</code>, com ação <strong>Allow</strong>.</li>
+                    <li><strong>Ação Padrão (Default action):</strong> <strong>Block (Bloquear)</strong>.</li>
+                    <li>Conclua a criação da Web ACL.</li>
+                </ul>
+            </li>
+            <li>Validação da Segurança da API:
+                <ul>
+                    <li>No console do <strong>API Gateway</strong>, acesse <code>ProductsApi</code> &gt; <strong>Estágios</strong> &gt; <code>prod</code> &gt; <code>/bean_products</code> (GET).</li>
+                    <li>Copie o <strong>Invocar URL</strong> (formato <code>https://&lt;api-id&gt;.execute-api.us-east-1.amazonaws.com/prod/bean_products</code>) e abra no navegador do seu computador: o documento JSON com a lista de grãos é retornado normalmente.</li>
+                    <li>Abra a mesma URL em um dispositivo fora da rede (leitura de QR Code no smartphone ou <code>wget &lt;invoke-url&gt;</code> no terminal do IDE): a resposta retornará imediatamente:
+                        <pre><code>{"message": "Forbidden"}</code></pre>
+                    </li>
+                </ul>
+            </li>
+        </ol>
+
+        <hr>
+
+        <h3>Tarefa 5: Configuração de uma CloudFront Function na Borda</h3>
+        <p>Frank solicitou que o site exiba aleatoriamente uma sobremesa artesanal em destaque na página inicial. Implementar isso gerando páginas dinâmicas no servidor destruiria a capacidade de cache da CDN; implementar via JavaScript no cliente aumentaria o peso do download. A solução ideal da AWS é executar uma <strong>CloudFront Function</strong> na borda: a função intercepta a resposta do CloudFront (<em>Viewer Response</em>), sorteia um item de um array de doces e injeta um cookie HTTP (<code>the_image</code>). O código estático do site lê esse cookie e altera dinamicamente a imagem de fundo!</p>
+
+        <ol>
+            <li>No console do <strong>CloudFront</strong>, selecione <strong>Functions (Funções)</strong> no menu lateral e clique em <strong>Criar função</strong>:
+                <ul>
+                    <li><strong>Nome:</strong> <code>random_image_header</code></li>
+                    <li>Clique em <strong>Criar função</strong>.</li>
+                </ul>
+            </li>
+            <li>Na aba <strong>Function code (Código de função)</strong>, substitua o código padrão pelo seguinte script JavaScript:
+                <pre><code>function handler(event) {
+    var pastry_name_arr = [
+        "apple_pie",
+        "apple_pie_slice",
+        "chocolate_chip_cupcake",
+        "strawberry_cupcake",
+        "blueberry_jelly_doughnut",
+        "plain_bagel"
+    ],
+    random_int = Math.floor(Math.random() * (pastry_name_arr.length)),
+    response = event.response,
+    date = new Date(),
+    attr_str = "",
+    distro_str = "&lt;DISTRIBUTION_ID&gt;"; // Substitua pelo ID da sua distribuição CloudFront
+    
+    date.setTime(+ date + (365 * 86400000)); // Validade de 1 ano em milissegundos
+    attr_str = "Secure; Path=/; Domain=" + distro_str + ".cloudfront.net; Expires=" + date + ";";
+    
+    response.cookies = {
+        "the_image": {
+"value": pastry_name_arr[random_int],
+"attributes": attr_str
+        }
+    };
+    
+    return response;
+}</code></pre>
+                <p><em>Importante:</em> Na variável <code>distro_str</code>, substitua o placeholder pela string do domínio da sua distribuição CloudFront (apenas o prefixo antes de <code>.cloudfront.net</code>). Salve as alterações.</p>
+            </li>
+            <li>Teste e Publique a Função:
+                <ul>
+                    <li>Acesse a aba <strong>Teste</strong>, selecione o tipo de evento <strong>Viewer Response</strong> e clique em <strong>Test function</strong>. Confirme que o status de saída seja <code>200 OK</code> com o cookie <code>the_image</code> gerado no payload.</li>
+                    <li>Acesse a aba <strong>Publicar</strong> e clique em <strong>Publicar função</strong>.</li>
+                    <li>Na seção <em>Distribuições associadas</em>, clique em <strong>Adicionar associação</strong>:
+                        <ul>
+                            <li>Distribuição: Selecione a distribuição da cafeteria.</li>
+                            <li>Tipo de evento: <strong>Viewer Response</strong>.</li>
+                            <li>Comportamento de cache: <strong>Padrão (*)</strong>.</li>
+                        </ul>
+                    </li>
+                </ul>
+            </li>
+            <li>Teste no Navegador: Abra o site da cafeteria no CloudFront e pressione <em>F5</em> várias vezes seguidas. A cada recarregamento, a imagem da sobremesa em destaque à direita da xícara de café alternará aleatoriamente (torta de maçã, cupcakes, donut de geleia ou bagel), enquanto todo o restante da página permanece servido em altíssima velocidade pelo cache!</li>
+        </ol>
+
+        <hr>
+
+        <h3>Tarefa 6: Ajustar a Duração do Cache (TTL &amp; Cache-Control no S3)</h3>
+        <p>Durante a fase de desenvolvimento, todos os arquivos foram enviados ao S3 com o cabeçalho <code>Cache-Control: max-age=0</code>. Isso forçava o CloudFront a revalidar todas as requisições na origem (o bucket S3), gerando cabeçalhos de resposta <code>x-cache: RefreshHit from cloudfront</code> ou <code>Miss from cloudfront</code>.</p>
+        <p>Agora que a distribuição está estável, Sofía ajustará a política de expiração definindo um <strong>TTL de 180 segundos (3 minutos)</strong> em todos os objetos do bucket S3 via linha de comando na AWS CLI.</p>
+
+        <ol>
+            <li>Inspecione o Comportamento Atual no Navegador:
+                <ul>
+                    <li>No site da cafeteria, abra as ferramentas do desenvolvedor (<em>F12 &gt; Network</em>) e recarregue a página.</li>
+                    <li>Selecione a requisição do domínio <code>.cloudfront.net</code> e veja os <em>Response Headers</em>:
+                        <pre><code>cache-control: max-age=0
+x-cache: RefreshHit from cloudfront (ou Miss from cloudfront)</code></pre>
+                    </li>
+                </ul>
+            </li>
+            <li>Atualize o Cabeçalho <code>Cache-Control</code> em Lote no S3 via AWS CLI:
+                <p>No terminal Bash do VS Code, execute o pipeline de comandos para sobrescrever os metadados de todos os arquivos para <code>max-age=180</code>:</p>
+                <pre><code>BUCKET_NAME=$(aws s3api list-buckets --query "Buckets[?contains(Name, 's3bucket')].Name" --output text)
+echo "Bucket identificado: $BUCKET_NAME"
+
+aws s3 ls s3://$BUCKET_NAME/ | awk '{print $4}' | xargs -I {} aws s3api copy-object   --bucket $BUCKET_NAME   --copy-source $BUCKET_NAME/{}   --key {}   --cache-control "max-age=180"   --metadata-directive REPLACE</code></pre>
+            </li>
+            <li>Valide no Console do S3: Abra o bucket <code>-s3bucket</code>, selecione qualquer arquivo e verifique que a propriedade <code>Cache-Control</code> agora exibe <code>max-age=180</code>.</li>
+            <li>Teste os Efeitos do Cache na Borda:
+                <ul>
+                    <li>Recarregue o site da cafeteria no navegador. Na aba <em>Network</em>, observe que o cabeçalho <code>cache-control: max-age=180</code> agora está ativo.</li>
+                    <li>Recarregue a página pela segunda vez (dentro da janela de 3 minutos): o cabeçalho de diagnóstico agora reportará orgulhosamente:
+                        <pre><code>x-cache: Hit from cloudfront</code></pre>
+                        <p>O arquivo HTML e os ativos estáticos foram entregues diretamente da memória da Edge Location do CloudFront em microssegundos, sem tocar no Amazon S3!</p>
+                    </li>
+                    <li>Aguarde 3 minutos até que o TTL expire e recarregue a página: o cabeçalho mudará para <code>x-cache: RefreshHit from cloudfront</code> (o CloudFront consultou o S3 para verificar se o arquivo mudou, renovando o cache por mais 180 segundos).</li>
+                    <li>Mesmo com a página em estado de <em>Cache Hit</em>, a <strong>CloudFront Function</strong> continua disparando no evento <code>Viewer Response</code>, garantindo a alternância contínua da imagem promocional sem quebrar o cache de borda!</li>
+                </ul>
+            </li>
+        </ol>
+
+        <hr>
+
+        <h3>Conclusão do Laboratório e Conquistas da Cafeteria</h3>
+        <p>Parabéns! Você implementou com sucesso a modernização completa de borda e segurança para a aplicação da cafeteria:</p>
+
+        <div class="callout-dica">
+            <strong>Síntese das Conquistas Arquiteturais Entregues:</strong><br>
+            • <strong>Distribuição Global com HTTPS:</strong> O site estático agora é entregue através de centenas de Edge Locations do <strong>Amazon CloudFront</strong> com certificado SSL/TLS nativo, eliminando avisos de segurança no navegador.<br>
+            • <strong>Segurança Perimetral Dual com AWS WAF:</strong>
+            <br>&nbsp;&nbsp;- <em>Borda Global:</em> Web ACL bloqueia qualquer tráfego web ao site fora do IP do escritório da cafeteria.
+            <br>&nbsp;&nbsp;- <em>API Regional:</em> Web ACL no Amazon API Gateway protege os endpoints REST de backend contra invocações não autorizadas.<br>
+            • <strong>Computação na Borda (Edge Computing):</strong> Uma <strong>CloudFront Function</strong> em JavaScript no evento <code>Viewer Response</code> seleciona sobremesas aleatórias via cookies, combinando personalização dinâmica de interface com cache estático em escala.<br>
+            • <strong>Otimização de Ciclo de Vida do Cache:</strong> Você calibrou os cabeçalhos <code>Cache-Control: max-age=180</code> e dominou a interpretação dos diagnósticos de resposta da CDN (<code>Hit</code>, <code>Miss</code> e <code>RefreshHit</code>).
+        </div>
+    </div>
+</section>

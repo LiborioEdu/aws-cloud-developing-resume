@@ -1,0 +1,758 @@
+<span class="anchor" id="modulo-7"></span>
+<section data-module-id="modulo-7">
+    <h1>7. Developing Event-Driven Serverless Solutions</h1>
+
+    <span class="anchor-h2" id="mod7-intro"></span>
+    <h2>1. Introduction</h2>
+
+    <h4>Neste módulo, o foco total é no serviço que revolucionou a forma de programar e arquitetar sistemas na nuvem da AWS: o <strong>AWS Lambda</strong>. Você aprenderá a criar códigos que rodam sob demanda (orientados a eventos) sem precisar gerenciar, provisionar ou atualizar a infraestrutura de nenhum servidor (Serverless).</h4>
+
+    <h3>Objetivos de Aprendizado</h3>
+    <p>Ao final deste módulo, a expectativa é que você domine com profundidade:</p>
+    <ul>
+        <li><strong>O conceito de Serverless Computing:</strong> Compreender a filosofia da computação sem servidor, abstração total da infraestrutura e modelo de cobrança puramente orientado ao consumo real.</li>
+        <li><strong>Funcionamento e Modelos de Invocação do AWS Lambda:</strong> Como o serviço gerencia os ciclos de vida, ambientes de execução e o que exatamente faz uma função "acordar" e executar (invocações síncronas, assíncronas e mapeamento de fontes de eventos / <em>Event Source Mapping</em>).</li>
+        <li><strong>Gestão de Identidade e Permissões com AWS IAM:</strong> Configuração precisa de <em>Execution Roles</em> para conceder os privilégios mínimos necessários (ex: permitir que a função Lambda leia e grave itens em tabelas do Amazon DynamoDB).</li>
+        <li><strong>Ciclo de Desenvolvimento e Deploy:</strong> Como escrever, empacotar dependências, configurar variáveis de ambiente e implantar funções Lambda via Console, AWS CLI, AWS SAM e CDK.</li>
+        <li><strong>Rastreamento e Depuração com AWS X-Ray:</strong> Utilizar o rastreamento distribuído como ferramenta essencial para debugar falhas, analisar latências e otimizar <em>cold starts</em> no código.</li>
+    </ul>
+
+    <h3>O Caso da Cafeteria (Cenário Prático)</h3>
+    <p>No módulo anterior (Módulo 6), a desenvolvedora Sofía utilizou <strong>Mock Endpoints</strong> no Amazon API Gateway para simular respostas estáticas e validar a interface web do site junto aos donos da cafeteria. O teste foi um sucesso e a proposta foi aprovada!</p>
+
+    <p>Agora chegou a hora de dar vida à aplicação e <strong>conectar a API ao banco de dados NoSQL real</strong> modelado e provisionado no Módulo 5 (Amazon DynamoDB):</p>
+
+    <div class="callout-dica">
+        <strong>A Solução Serverless da Sofía:</strong> A Sofía vai substituir os endpoints simulados (Mocks) por funções reais do <strong>AWS Lambda</strong>. O Lambda atuará como a <em>"ponte lógica"</em> inteligente da aplicação, executando validações de negócio, efetuando consultas no DynamoDB e devolvendo as respostas formatadas em JSON.
+    </div>
+
+    <h3>O Fluxo de Arquitetura da Solução</h3>
+    <p>A jornada completa de uma requisição do usuário na cafeteria seguirá este fluxo integrado:</p>
+
+    <div class="code-diagram" style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 8px; padding: 20px; margin: 20px 0; font-family: monospace; line-height: 1.6;">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; text-align: center;">
+            <div style="flex: 1; min-width: 120px; background: var(--bg-hover); padding: 12px; border-radius: 6px; border: 1px solid var(--border-color);">
+                <strong>💻 Front-end Web</strong><br>
+                <span style="font-size: 0.85em; color: var(--text-muted);">Site S3 / CloudFront</span>
+            </div>
+            <div style="color: var(--accent-color); font-weight: bold;">&rarr; HTTP GET /products &rarr;</div>
+            <div style="flex: 1; min-width: 120px; background: var(--bg-hover); padding: 12px; border-radius: 6px; border: 1px solid var(--border-color);">
+                <strong>🚪 API Gateway</strong><br>
+                <span style="font-size: 0.85em; color: var(--text-muted);">Roteamento &amp; Auth</span>
+            </div>
+            <div style="color: var(--accent-color); font-weight: bold;">&rarr; Invoca Evento &rarr;</div>
+            <div style="flex: 1; min-width: 120px; background: var(--bg-hover); padding: 12px; border-radius: 6px; border: 1px solid var(--border-color);">
+                <strong>⚡ AWS Lambda</strong><br>
+                <span style="font-size: 0.85em; color: var(--text-muted);">Lógica de Negócio</span>
+            </div>
+            <div style="color: var(--accent-color); font-weight: bold;">&rarr; Query / Scan &rarr;</div>
+            <div style="flex: 1; min-width: 120px; background: var(--bg-hover); padding: 12px; border-radius: 6px; border: 1px solid var(--border-color);">
+                <strong>🗄️ DynamoDB</strong><br>
+                <span style="font-size: 0.85em; color: var(--text-muted);">Tabela de Produtos</span>
+            </div>
+        </div>
+        <div style="margin-top: 15px; text-align: center; font-size: 0.9em; color: var(--text-muted); border-top: 1px dashed var(--border-color); padding-top: 10px;">
+            &larr; Resposta JSON com produtos reais percorre o caminho inverso até a renderização na tela do cliente &larr;
+        </div>
+    </div>
+    <span class="anchor-h2" id="mod7-introducing-serverless"></span>
+    <h2>2. Introducing serverless computing</h2>
+
+    <p>O conceito de <strong>Serverless (Computação Sem Servidor)</strong> não significa que os servidores físicos deixaram de existir na infraestrutura. Significa que <strong>você, como desenvolvedor ou arquiteto, não precisa mais gerenciá-los</strong>.</p>
+
+    <p>Todo o fardo operacional pesado — aplicar patches de segurança no sistema operacional, configurar e calibrar balanceadores de carga, provisionar capacidade para picos de tráfego e substituir hardware defeituoso — fica totalmente a cargo da AWS.</p>
+
+    <div class="callout-dica">
+        <strong>A Grande Mudança de Paradigma:</strong> Seu foco como desenvolvedor passa a ser <strong>100% direcionado para as regras de negócio</strong> (o código que gera valor). Além disso, o modelo financeiro é estritamente orientado ao consumo real: você só paga quando o seu código está sendo executado. Se a sua aplicação parar ou não receber requisições durante a madrugada, o custo de computação é <strong>exatamente zero</strong>.
+    </div>
+
+    <h3>A Evolução da Computação em Nuvem</h3>
+    <p>Para compreender o verdadeiro impacto do modelo Serverless, vale analisar a trajetória histórica da infraestrutura computacional:</p>
+
+    <ul>
+        <li><strong>1. Servidores Físicos Locais (On-Premises):</strong> Custos de capital (CapEx) astronômicos, espera de meses para aquisição e instalação física em racks, necessidade de equipes dedicadas de infraestrutura, cabeamento e refrigeração.</li>
+        <li><strong>2. Servidores Virtuais na Nuvem (Amazon EC2):</strong> Eliminação do hardware físico e ganho de escalabilidade elástica, mas o desenvolvedor ainda é responsável por configurar o sistema operacional, aplicar patches de segurança, gerenciar capacidade ociosa e pagar por instâncias ligadas 24/7.</li>
+        <li><strong>3. Containers (Docker / Amazon ECS / Amazon EKS):</strong> Independência de plataforma e empacotamento consistente de microsserviços, mas ainda exige gerenciar clusters, orquestração e capacidade das instâncias subjacentes.</li>
+        <li><strong>4. Serverless (AWS Lambda, Fargate, DynamoDB, S3):</strong> O ápice da abstração na nuvem. Tolerância a falhas nativa, alta disponibilidade automática em múltiplas Zonas de Disponibilidade (Multi-AZ), escalabilidade instantânea de zero a milhares de requisições concorrentes e cobrança estritamente por milissegundo de execução.</li>
+    </ul>
+
+    <h3>A Batalha Arquitetural: Monolitos vs. Microsserviços</h3>
+    <p>Para extrair o potencial máximo do Serverless e da computação em nuvem, a maneira como projetamos o software precisou evoluir. O material contrasta duas abordagens arquiteturais fundamentais:</p>
+
+    <div class="image-container">
+        <img src="img/monolith_vs_microservices.png" loading="lazy" alt="Monolith (Does everything) vs. Microservice (Does one thing)">
+    </div>
+
+    <h4>1. A Abordagem Monolítica (O "Blocão" - Does Everything)</h4>
+    <p>No modelo tradicional monolítico, todas as funcionalidades da aplicação (catálogo de produtos, carrinho de compras, processamento de pagamentos, relatórios fiscais e autenticação) rodam juntas em um único processo e compartilham a mesma base de código.</p>
+    <ul>
+        <li><strong>Vantagens Iniciais:</strong> É simples de começar a construir e testar localmente nas fases iniciais do projeto, pois há apenas um repositório e um único artefato a ser compilado.</li>
+        <li><strong>O Pesadelo a Longo Prazo:</strong> Conforme o sistema cresce, vira um emaranhado de acoplamento de dependências (*spaghetti code*). Você fica amarrado a uma única linguagem de programação e a um único banco de dados. Qualquer alteração minúscula exige retestar e reimplantar o sistema inteiro, gerando lentidão e o temido <em>"Merge Friday"</em> (quando as equipes tentam mesclar seus códigos na sexta-feira e a aplicação inteira quebra).</li>
+    </ul>
+
+    <h4>2. A Abordagem de Microsserviços (A Arquitetura Moderna - Does One Thing)</h4>
+    <p>A aplicação é dividida em serviços pequenos, autônomos e desacoplados (<em>small pieces, loosely joined</em>), onde cada microsserviço é responsável por uma única função de negócio (<em>Single Responsibility Principle</em>).</p>
+    <ul>
+        <li><strong>O Desafio Inicial:</strong> Exige maior maturidade técnica e planejamento arquitetural para gerenciar chamadas de rede distribuídas e contratos de API entre serviços.</li>
+        <li><strong>As Vantagens Brutais:</strong>
+            <ul>
+                <li><strong>Escala Independente:</strong> Se o serviço de "Processar Pagamento" receber um pico massivo de acessos na Black Friday, apenas ele escala dinamicamente, sem desperdiçar recursos na função de "Catálogo de Produtos".</li>
+                <li><strong>Liberdade Tecnológica (Polyglot Persistence / Purpose-Built):</strong> Um serviço de busca pode ser escrito em Python utilizando o DynamoDB, enquanto outro serviço analítico em lote pode ser escrito em Java conectado a um banco relacional. Utiliza-se a ferramenta certa para o problema certo.</li>
+                <li><strong>Deploys Ágeis e Isolamento de Falhas:</strong> Cada microsserviço possui seu próprio ciclo de vida CI/CD. Você pode atualizar ou reverter uma função Lambda em produção em poucos segundos, sem risco de indisponibilidade para o restante do ecossistema.</li>
+            </ul>
+        </li>
+    </ul>
+
+    <span class="anchor-h2" id="mod7-introducing-lambda"></span>
+    <h2>3. Introducing Lambda</h2>
+
+    <p>O <strong>AWS Lambda</strong> é o serviço central e pioneiro de computação serverless da AWS. Ele permite que você execute código para praticamente qualquer tipo de aplicação ou serviço de backend sem precisar provisionar, dimensionar ou gerenciar instâncias ou servidores, cobrando estritamente pelo tempo de computação consumido. Se o seu código não está sendo executado, o custo é <strong>zero</strong>.</p>
+
+    <h3>A Anatomia de uma Função Lambda (Os 4 Pilares)</h3>
+    <p>Para construir e executar uma função Lambda com sucesso, você configura quatro pilares fundamentais:</p>
+
+    <ul>
+        <li>
+            <strong>1. Código e Ambiente de Execução (Runtime):</strong>
+            <p>Você escreve sua lógica na linguagem de programação que preferir. O Lambda oferece suporte nativo para <strong>Node.js, Python, Java, Ruby, Go e .NET</strong>, além de permitir o uso de <em>Custom Runtimes</em> (como Rust, C++ ou PHP) através de containers OCI ou scripts de inicialização <code>bootstrap</code>.</p>
+            <p>Você empacota e envia seu código juntamente com as bibliotecas e dependências em um arquivo <code>.zip</code> (até 50 MB compactado / 250 MB descompactado) ou como uma imagem de container Docker no Amazon ECR (de até 10 GB).</p>
+        </li>
+        <li>
+            <strong>2. Gatilhos de Evento (Event Sources):</strong>
+            <p>O Lambda é arquitetado puramente sob o paradigma <strong>orientado a eventos (Event-Driven)</strong>. Ele permanece inativo e só "acorda" quando provocado por um gatilho configurado.</p>
+            <p>Esse evento disparador pode ser uma chamada HTTP do Amazon API Gateway, a chegada de um arquivo no Amazon S3, uma alteração capturada no DynamoDB Streams, uma mensagem em uma fila SQS ou um agendamento periódico de relógio via Amazon EventBridge.</p>
+        </li>
+        <li>
+            <strong>3. Configuração de Recursos (Memória, CPU e Timeout):</strong>
+            <p>No AWS Lambda, <strong>você não escolhe nem configura a CPU diretamente</strong>. Você seleciona apenas a quantidade de <strong>Memória RAM</strong> alocada (ajustável de 128 MB a 10.240 MB / 10 GB em incrementos de 1 MB).</p>
+            <p>A AWS aloca automaticamente o poder computacional da CPU e a largura de banda de rede de forma estritamente proporcional à memória escolhida (ao atingir 1.769 MB de RAM, a função recebe o equivalente a 1 vCPU dedicada inteira).</p>
+            <p>Além da memória, você define o <strong>Timeout</strong> (tempo máximo limite de execução contínua antes de a AWS abortar a função), configurável entre <strong>1 segundo e 15 minutos (900 segundos)</strong>.</p>
+        </li>
+        <li>
+            <strong>4. Permissões de Segurança (AWS IAM):</strong>
+            <p>Toda função Lambda necessita de uma <strong>Execution Role (Função de Execução)</strong> no IAM para ter autorização de conversar e operar em outros serviços da nuvem (como ler dados no DynamoDB ou registrar logs no CloudWatch).</p>
+        </li>
+    </ul>
+
+    <h3>Ambientes Efêmeros (Ephemeral Environments)</h3>
+    <p>Quando um evento aciona a função, a AWS instancia um ambiente de execução temporário e seguro (utilizando a tecnologia de microVMs <em>Firecracker</em>), executa o código e, logo após o término, congela ou descarta a microVM.</p>
+    <p>O desenvolvedor não possui acesso administrativo nem visibilidade do sistema operacional subjacente. Esse ciclo efêmero garante <strong>alta disponibilidade e tolerância a falhas nativas</strong>: se uma requisição sofrer um erro ou travamento, ela não compromete nenhuma outra execução simultânea.</p>
+
+    <h3>Concorrência e Escalabilidade (Tema Crucial em Certificações)</h3>
+    <p>A <strong>Concorrência</strong> representa a quantidade de execuções da função acontecendo exatamente no mesmo instante de tempo:</p>
+    <p style="text-align: center; font-family: monospace; background: var(--bg-secondary); padding: 10px; border-radius: 6px;">
+        Concorrência = (Requisições por Segundo) &times; (Duração média da função em segundos)
+    </p>
+    <ul>
+        <li><strong>Cota Regional (Regional Quota):</strong> Limite padrão inicial de <strong>1.000 execuções concorrentes</strong> compartilhadas por todas as funções da conta em uma região específica da AWS.</li>
+        <li><strong>Concorrência Reservada (Reserved Concurrency):</strong> Permite "isolar" e garantir uma quantidade fixa da cota regional para uma função crítica (garantindo que ela nunca fique sem recursos se outras funções explodirem em tráfego), além de servir como teto máximo de proteção para não sobrecarregar bancos de dados relacionais frágeis no backend.</li>
+        <li><strong>Cota de Rajada (Burst Concurrency Quota):</strong> Limite de segurança inicial da AWS que varia de 500 a 3.000 instâncias concorrentes no primeiro minuto (dependendo da região), impedindo subidas verticais instantâneas e aumentando suavemente a capacidade em 500 instâncias adicionais a cada minuto subsequente.</li>
+    </ul>
+
+    <h3>Casos de Uso Clássicos</h3>
+    <p>Além de servir como backend dinâmico para aplicações web (como a cafeteria da Sofía), o AWS Lambda se destaca em:</p>
+    <ul>
+        <li>Processamento e transformação de dados em tempo real (redimensionamento automático de imagens no S3, sanitização de streams do Kinesis).</li>
+        <li>Criação de Chatbots inteligentes e interfaces de voz (Amazon Lex / Alexa Skills).</li>
+        <li>Automações operacionais de TI e DevOps (scripts programados para desligar instâncias EC2 de testes nas noites de sexta-feira, poupando custos de infraestrutura).</li>
+    </ul>
+
+    <span class="anchor-h2" id="mod7-invoking-lambda"></span>
+    <h2>4. Invoking Lambda functions</h2>
+
+    <p>Entender como uma função Lambda "acorda" e é invocada é um dos conceitos mais cobrados em exames da AWS e no desenho de sistemas resilientes. Nem toda chamada funciona do mesmo jeito, e confundir os modelos de invocação pode causar falhas em cascata e perda de dados.</p>
+
+    <p>O AWS Lambda pode ser acionado essencialmente através de duas modalidades: <strong>Modelo Push (Empurrar)</strong> e <strong>Modelo Pull / Polling (Puxar)</strong>.</p>
+
+    <h3>1. Modelo Push (Empurrar: Chamada Direta)</h3>
+    <p>Neste modelo, um serviço da AWS ou o código do cliente invoca a função Lambda diretamente. O modelo Push subdivide-se em dois comportamentos fundamentais:</p>
+
+    <div class="image-container">
+        <img src="img/push_event_types_sync_async.png" loading="lazy" alt="Push event types no AWS Lambda: Synchronous vs. Asynchronous">
+    </div>
+
+    <ul>
+        <li>
+            <strong>Síncrono (Synchronous / RequestResponse):</strong>
+            <p>É a comunicação bidirecional em tempo real. O serviço chamador dispara o Lambda e <strong>fica aguardando a resposta ser calculada e devolvida</strong> antes de prosseguir.</p>
+            <ul>
+                <li><strong>Exemplos:</strong> Amazon API Gateway, Application Load Balancer (ALB), Amazon Cognito e chamadas diretas via CLI/SDK com o tipo <code>RequestResponse</code>.</li>
+                <li><strong>Sem Retentativas Automáticas:</strong> Se a função falhar, estourar o timeout ou retornar um erro de código, a falha é devolvida instantaneamente ao cliente. Cabe à aplicação cliente decidir se tenta novamente. O código HTTP de sucesso é <code>200 OK</code>.</li>
+            </ul>
+        </li>
+        <li>
+            <strong>Assíncrono (Asynchronous / Event):</strong>
+            <p>É o modelo "dispare e esqueça" (<em>fire-and-forget</em>). O serviço notifica o Lambda de que um evento aconteceu e é liberado imediatamente, sem esperar o término do processamento.</p>
+            <ul>
+                <li><strong>Exemplos:</strong> Amazon S3 (ex: evento <code>s3:ObjectCreated:*</code>), Amazon SNS, Amazon EventBridge e chamadas diretas com tipo <code>Event</code>.</li>
+                <li><strong>Fila Interna e Retentativas Nativas:</strong> O Lambda armazena o evento em uma fila interna gerenciada. Se a execução falhar, o serviço realiza automaticamente <strong>mais duas tentativas</strong> (totalizando 3 execuções com backoff exponencial).</li>
+                <li><strong>Destino de Falhas (DLQ / Destinations):</strong> Se todas as 3 tentativas falharem, o evento pode ser despachado para uma <strong>Dead-Letter Queue (DLQ)</strong> no Amazon SQS/SNS ou para um <em>Lambda Destination</em> para auditoria e reprocessamento posterior. O código HTTP que o serviço chamador recebe de imediato é <code>202 Accepted</code>.</li>
+            </ul>
+        </li>
+    </ul>
+
+    <h3>2. Modelo Pull / Polling (Puxar: Event Source Mapping)</h3>
+    <p>Neste modelo, a função Lambda atua de forma proativa. Você configura um <strong>Mapeamento de Fonte de Eventos (Event Source Mapping - ESM)</strong>: o próprio serviço interno do Lambda fica sondando de graça uma fila ou fluxo de dados e, ao detectar novos registros, puxa um lote (<em>batch</em>) e aciona a função para processá-los.</p>
+
+    <ul>
+        <li>
+            <strong>Streams (Amazon Kinesis Data Streams e DynamoDB Streams):</strong>
+            <p>O Lambda lê os dados ordenados por partição (<em>shard</em>).</p>
+            <div class="callout-dica">
+                <strong>Atenção ao Bloqueio de Shard (Head-of-Line Blocking):</strong> Se um registro de um lote falhar durante o processamento, por padrão o Lambda tentará reprocessar o lote inteiro continuamente até que ele tenha sucesso ou os dados expirem (de 24 horas a 7 dias). Isso pode travar todo o processamento daquele shard! A solução é configurar a <em>bissecção de lote</em> (dividir o lote pela metade na falha) e definir limites máximos de tentativas com desvio para destinos de falha.
+            </div>
+        </li>
+        <li>
+            <strong>Filas (Amazon SQS):</strong>
+            <p>O Lambda faz <em>long-polling</em> consumindo mensagens da fila em lotes. Se a função falhar ou exceder o timeout, as mensagens retornam automaticamente para a fila após o <em>Visibility Timeout</em>, até que esgotem o número máximo de recebimentos e sejam enviadas para a DLQ do próprio SQS.</p>
+        </li>
+    </ul>
+
+    <div class="callout-dica">
+        <strong>Decisão Arquitetural na Cafeteria da Sofía:</strong> Para conectar o API Gateway ao Lambda no site da cafeteria, a Sofía utilizará o <strong>modelo Push Síncrono</strong>, pois o navegador do usuário depende do retorno imediato dos dados do DynamoDB para renderizar os produtos na tela em tempo real.
+    </div>
+
+    <span class="anchor-h2" id="mod7-setting-permissions"></span>
+    <h2>5. Setting permissions for Lambda</h2>
+
+    <p>A segurança na AWS segue rigorosamente o princípio do privilégio mínimo. Para que uma função Lambda execute de forma protegida e sem falhas operacionais, você precisa configurar permissões em <strong>duas vias obrigatórias e distintas</strong>. Se esquecer qualquer uma delas, a execução esbarrará em erros de <code>AccessDenied</code>.</p>
+
+    <h3>1. Permissões de Invocação (Resource-based Policies)</h3>
+    <p><strong>A pergunta que responde:</strong> <em>"Quem tem autorização para me acordar e disparar o meu código?"</em></p>
+    <ul>
+        <li>Esta permissão é voltada principalmente para serviços baseados no <strong>modelo Push</strong> (como Amazon S3, Amazon SNS ou o Amazon API Gateway).</li>
+        <li>Por padrão de fábrica, nenhum recurso externo possui permissão para disparar uma função Lambda. Você anexa uma <strong>Política de Recurso (Resource-based Policy)</strong> diretamente à função para conceder a ação <code>lambda:InvokeFunction</code> ao serviço de origem.</li>
+        <li><strong>Exemplo Prático:</strong> Quando o S3 precisa disparar o Lambda ao receber um arquivo, a política de recurso da função concede permissão ao <code>s3.amazonaws.com</code> condicionado ao ARN do bucket específico. Esse mecanismo também viabiliza invocações seguras entre contas AWS distintas (<em>Cross-Account</em>).</li>
+    </ul>
+
+    <h3>2. Função de Execução (Execution Role)</h3>
+    <p><strong>A pergunta que responde:</strong> <em>"Agora que estou rodando, o que o meu código tem permissão para acessar na AWS?"</em></p>
+    <p>Após ser acordada, a função geralmente precisa interagir com recursos da AWS (gravar logs no CloudWatch, consultar tabelas no DynamoDB ou ler objetos no S3). Para isso, a função assume uma <strong>Execution Role no AWS IAM</strong>.</p>
+
+    <div class="image-container">
+        <img src="img/execution_role_example_iam_trust.png" loading="lazy" alt="Execution role example no AWS Lambda: IAM policy vs Trust policy">
+    </div>
+
+    <p>Uma Execution Role é composta por <strong>duas políticas essenciais</strong>:</p>
+    <ul>
+        <li>
+            <strong>IAM Policy (Política de Permissões):</strong>
+            <p>Define a lista explícita de ações permitidas nos recursos de destino. No exemplo acima, a política concede permissão para criação de grupos e fluxos de log e emissão de eventos no CloudWatch (<code>logs:CreateLogGroup</code>, <code>logs:CreateLogStream</code>, <code>logs:PutLogEvents</code>).</p>
+        </li>
+        <li>
+            <strong>Trust Policy (Política de Confiança):</strong>
+            <p>É o acordo de confiança que permite ao serviço da AWS assumir aquela Role. Ela especifica o <em>Principal</em> como <code>lambda.amazonaws.com</code> e a ação como <code>sts:AssumeRole</code>, permitindo que o Lambda receba credenciais temporárias do AWS STS para executar as operações autorizadas.</p>
+        </li>
+    </ul>
+
+    <div class="callout-dica">
+        <strong>Pegadinha Clássica nos Modelos Pull (SQS e Streams):</strong>
+        <br>
+        No modelo Pull/Polling (como SQS, Kinesis ou DynamoDB Streams), quem realiza o polling ativamente é o próprio serviço interno do Lambda. Por essa razão, <strong>as permissões para ler a fila ou stream (como <code>sqs:ReceiveMessage</code>, <code>sqs:DeleteMessage</code>, <code>sqs:GetQueueAttributes</code>) devem ser configuradas DENTRO da Execution Role da função</strong>, e não como Resource Policy!
+    </div>
+
+    <span class="anchor-h2" id="mod7-authoring-configuring"></span>
+    <h2>6. Authoring and configuring Lambda functions</h2>
+
+    <h4>Escrever código para o <strong>AWS Lambda</strong> exige uma mudança fundamental de mentalidade em relação à programação em servidores tradicionais. Em vez de uma aplicação de longa duração que mantém estado em memória, o código serverless roda em microambientes gerenciados, efêmeros, sem estado e rigorosamente acionados por eventos sob demanda.</h4>
+
+    <h3>O Núcleo da Execução: O Handler e Seus Parâmetros</h3>
+    <p>O <strong>Handler</strong> é a porta de entrada (<em>entry point</em>) da sua função Lambda. Quando um evento aciona o serviço, o runtime do Lambda invoca esse método repassando dois argumentos essenciais:</p>
+    <pre><code>def lambda_handler(event, context):
+    # 1. 'event' contém o payload JSON gerado pela origem do evento (API Gateway, S3, SQS, etc.)
+    # 2. 'context' fornece métodos e metadados sobre a invocação e o ambiente de execução
+    print(f"Iniciando requisição {context.aws_request_id}")
+    tempo_restante = context.get_remaining_time_in_millis()
+    
+    return {
+        'statusCode': 200,
+        'body': json.dumps({'message': 'Processamento concluído com sucesso!', 'remaining_ms': tempo_restante})
+    }</code></pre>
+    <ul>
+        <li><strong><code>event</code> (Objeto de Evento):</strong> Contém todos os dados da requisição formatados em JSON (cabeçalhos, query strings, corpo da requisição, metadados de buckets S3 ou registros de lote do DynamoDB/SQS). A estrutura exata do objeto varia dependendo do serviço invocador.</li>
+        <li><strong><code>context</code> (Objeto de Contexto):</strong> Fornece métodos de inspeção e metadados sobre o ambiente de execução em tempo real, como:
+            <ul>
+                <li><code>get_remaining_time_in_millis()</code>: Retorna quantos milissegundos restam antes que a função atinja o timeout configurado (essencial para encerrar tarefas graciosamente e salvar progresso parcial antes de ser cancelada).</li>
+                <li><code>function_name</code> e <code>function_version</code>: Nome e versão da função atualmente em execução.</li>
+                <li><code>memory_limit_in_mb</code>: Limite de memória RAM alocada para a função.</li>
+                <li><code>aws_request_id</code>: Identificador global exclusivo da invocação gerado pela AWS, crucial para correlacionar logs no CloudWatch e rastreamento no X-Ray.</li>
+            </ul>
+        </li>
+    </ul>
+
+    <h3>1. Configurações de Performance: Equilibrando Custo e Velocidade</h3>
+    <p>No AWS Lambda, o modelo de cobrança baseia-se em duas métricas principais: a <strong>quantidade total de requisições</strong> e a <strong>duração da execução</strong> (faturada por milissegundo de acordo com a quantidade de memória RAM alocada). Para otimizar custos e performance, os principais parâmetros são:</p>
+    <ul>
+        <li><strong>Memória (A Única Alavanca de Poder):</strong>
+            <ul>
+                <li>Configurável de <strong>128 MB a 10.240 MB (10 GB)</strong> em incrementos de 1 MB.</li>
+                <li>Você <strong>não</strong> escolhe diretamente a quantidade de núcleos de CPU nem a largura de banda de rede: a AWS aloca poder computacional de vCPU e taxa de transferência de rede de forma <em>estritamente proporcional</em> à quantidade de memória selecionada.</li>
+                <li>Ao configurar exatamente <strong>1.769 MB</strong>, sua função recebe o equivalente a <strong>1 vCPU dedicada inteira</strong>. Acima desse limite, o Lambda disponibiliza múltiplos núcleos de processamento, permitindo que códigos multithread ou bibliotecas paralelas operem com altíssimo desempenho.</li>
+            </ul>
+        </li>
+        <li><strong>Timeout (Tempo Limite de Execução):</strong>
+            <ul>
+                <li>Intervalo permitido: de <strong>1 segundo até 15 minutos (900 segundos)</strong> (o valor padrão ao criar uma função no console é de 3 segundos).</li>
+                <li>Se a função exceder o timeout definido, o runtime do Lambda interrompe a execução abruptamente com status de erro de timeout.</li>
+                <li><em>Recomendação Arquitetural:</em> Para APIs REST ou microsserviços interativos integrados ao API Gateway (cujo timeout máximo é de 29 segundos), configure o timeout do Lambda para valores conservadores (ex: 5 a 10 segundos). Isso previne faturas elevadas causadas por chamadas bloqueantes a APIs externas ou loops infinitos acidentais.</li>
+            </ul>
+        </li>
+        <li><strong>O Paradoxo do Custo (AWS Lambda Power Tuning):</strong>
+            <ul>
+                <li>Intuitivamente, poder-se-ia pensar que alocar menos memória (ex: 128 MB) sempre resultará em menor custo financeiro. No entanto, tarefas com intensidade de processamento (cálculos matemáticos pesados, compressão de imagens, parseamento de grandes arquivos JSON ou criptografia) rodam de forma muito mais lenta com pouca CPU.</li>
+                <li>Ao aumentar a memória (ex: de 128 MB para 1.024 MB), o custo por milissegundo aumenta, mas a duração da execução pode despencar (ex: de 1.200 ms para apenas 100 ms). Como o custo total é dado por $\text{Custo} = \text{Preço/ms} \times \text{Duração}$, a execução pode ficar <strong>mais barata e até 10 vezes mais rápida</strong>!</li>
+                <li>A ferramenta oficial open-source <strong>AWS Lambda Power Tuning</strong> (baseada em Step Functions) executa baterias de testes automatizados em paralelo com diferentes alocações de memória para desenhar o gráfico exato do ponto ótimo entre menor custo e menor latência.</li>
+            </ul>
+        </li>
+        <li><strong>Cold Starts vs. Provisioned Concurrency:</strong>
+            <ul>
+                <li><strong>Cold Start (Inicialização a Frio):</strong> Ocorre quando uma função é invocada pela primeira vez ou quando o tráfego escala além das instâncias ativas. A AWS precisa alocar a microVM Firecracker, baixar o pacote de código ou container, iniciar o runtime da linguagem e executar o código estático/global fora do handler antes de processar o evento.</li>
+                <li><strong>Warm Start (Inicialização a Quente):</strong> Ocorre quando requisições subsequentes aproveitam o mesmo ambiente de execução já carregado e disponível, executando diretamente o handler em milissegundos.</li>
+                <li><strong>Provisioned Concurrency (Concorrência Provisionada):</strong> Para aplicações sensíveis à latência (APIs voltadas a clientes com SLA rígido de tempo de resposta), a AWS permite pré-inicializar um número fixo de ambientes de execução mantidos continuamente "quentes" e prontos para atender requisições com latência estável de dois dígitos de milissegundo (recurso tarifado separadamente por capacidade provisionada por hora + invocações).</li>
+            </ul>
+        </li>
+    </ul>
+
+    <h3>2. Melhores Práticas de Programação (Padrão Ouro para Exames e Produção)</h3>
+    <p>Aplicar padrões de servidores tradicionais no Lambda costuma gerar gargalos de escalabilidade e custos desnecessários. Siga com rigor as seguintes regras arquiteturais:</p>
+    <ol>
+        <li><strong>Seja Totalmente Stateless (Sem Estado):</strong>
+            <p>Trate cada invocação como se ocorresse em uma máquina totalmente nova. Nunca confie no armazenamento em memória global ou no disco local para salvar sessões de usuários ou estados entre requisições de clientes distintos. O armazenamento em disco efêmero do Lambda no diretório <code>/tmp</code> (configurável de 512 MB a 10.240 MB) é temporário e limpo a qualquer momento que a microVM for reciclada. Para persistência durável, grave os dados diretamente no <strong>Amazon DynamoDB</strong>, <strong>Amazon S3</strong>, <strong>Amazon RDS</strong> ou em um volume montado de <strong>Amazon EFS</strong>.</p>
+        </li>
+        <li><strong>Reaproveite o Contexto de Execução Externo (A Regra de Ouro da Otimização):</strong>
+            <p>Tudo o que for declarado no escopo global (fora da função <code>def lambda_handler</code>) é executado apenas uma única vez durante o Cold Start. Portanto, <strong>inicialize conexões com bancos de dados, crie clientes de SDKs AWS (como <code>boto3.client('dynamodb')</code>) e faça o carregamento de configurações FORA do handler</strong>. Nas chamadas subsequentes (Warm Starts), o handler reutiliza essas conexões de rede e objetos em memória instantaneamente, eliminando o overhead de handshake e autenticação a cada requisição!</p>
+            <pre><code># CORRETO: Instanciação fora do handler (Reaproveitamento de Conexão no Warm Start)
+import boto3
+import os
+
+# Inicializado apenas uma vez durante o Cold Start:
+dynamodb = boto3.resource('dynamodb')
+table = dynamodb.Table(os.environ['TABLE_NAME'])
+
+def lambda_handler(event, context):
+    # O handler apenas realiza as operações de negócio utilizando a conexão já ativa:
+    response = table.get_item(Key={'product_id': event['productId']})
+    return response.get('Item', {})</code></pre>
+        </li>
+        <li><strong>Emagreça o Pacote de Implantação (Deployment Package):</strong>
+            <p>Inclua no seu pacote ZIP apenas as bibliotecas estritamente necessárias para a execução. No caso de Python, não instale dependências de compilação ou testes unitários. No Node.js (com o AWS SDK v3), importe apenas os clientes individuais específicos (ex: <code>import { DynamoDBClient } from "@aws-sdk/client-dynamodb"</code>) em vez de carregar a biblioteca inteira. Pacotes de código mais leves são baixados muito mais rápido pela infraestrutura da AWS, reduzindo consideravelmente a duração do Cold Start.</p>
+        </li>
+        <li><strong>Utilize Variáveis de Ambiente para Configurações:</strong>
+            <p>Nunca grave credenciais, nomes de buckets S3, nomes de tabelas ou strings de conexão diretamente no código-fonte (<em>hardcoded</em>). Configure variáveis de ambiente na definição da função para que o mesmo artefato de código seja promovido com facilidade entre ambientes de desenvolvimento, homologação e produção. Para chaves de API sensíveis e segredos, utilize a integração nativa com o <strong>AWS Systems Manager Parameter Store</strong> ou o <strong>AWS Secrets Manager</strong>.</p>
+        </li>
+        <li><strong>O Pecado Capital da Arquitetura: NUNCA Invoque um Lambda Síncrono a Partir de Outro Lambda:</strong>
+            <p>Fazer a <em>Função A</em> invocar a <em>Função B</em> de forma síncrona e ficar em espera bloqueante (esperando a resposta) é considerado um anti-pattern grave: você paga pelo tempo de execução de ambas as funções rodando simultaneamente (dupla cobrança desnecessária) e duplica o risco de timeouts em cascata. Para orquestrar fluxos de trabalho entre múltiplas funções, utilize o <strong>AWS Step Functions</strong> ou processe os eventos de forma assíncrona desacoplada via <strong>Amazon SQS</strong>, <strong>Amazon SNS</strong> ou <strong>Lambda Destinations</strong>.</p>
+        </li>
+    </ol>
+
+    <div class="callout-dica">
+        <strong>Resumo Prático para o Site da Cafeteria:</strong><br>
+        Para os endpoints da nossa cafeteria (<code>/products</code> e <code>/products/on_offer</code>), criaremos a instância do cliente DynamoDB no escopo global fora do handler. Assim, quando os clientes acessarem a vitrine de doces e salgados simultaneamente, as requisições serão atendidas por conexões aquecidas ultra-rápidas, mantendo o tempo de resposta em poucos milissegundos e sem estourar o orçamento do laboratório!
+    </div>
+
+    <span class="anchor-h2" id="mod7-deploying-lambda"></span>
+    <h2>7. Deploying Lambda functions</h2>
+
+    <h4>Em ambientes de desenvolvimento empresarial, gerenciar atualizações de código de forma confiável e sem interromper o serviço em produção é um dos maiores desafios. O AWS Lambda oferece um conjunto robusto de recursos nativos para versionamento, apelidos (aliases), camadas reutilizáveis e empacotamento em containers.</h4>
+
+    <h3>1. Versionamento de Funções (Versioning)</h3>
+    <p>O AWS Lambda possui um mecanismo nativo de versionamento para preservar snapshots imutáveis do seu código e de suas configurações:</p>
+    <ul>
+        <li><strong>A versão mutável <code>$LATEST</code>:</strong>
+            <ul>
+                <li>É o ambiente de trabalho padrão onde você desenvolve, edita o código no console ou faz uploads frequentes via IDE ou CLI.</li>
+                <li>A versão <code>$LATEST</code> é <strong>mutável</strong>: qualquer alteração no código ou nas variáveis de ambiente substitui imediatamente o comportamento anterior.</li>
+                <li><em>Risco em Produção:</em> Se serviços externos (como API Gateway ou S3) apontarem diretamente para <code>$LATEST</code>, qualquer salvamento inadvertido ou deploy incompleto quebrar imediatamente o sistema para todos os usuários em tempo real.</li>
+            </ul>
+        </li>
+        <li><strong>Publicando Versões Numeradas Imutáveis:</strong>
+            <ul>
+                <li>Quando o código foi devidamente testado e homologado, você executa a ação de <strong>publicar uma versão</strong> (Publish Version).</li>
+                <li>A AWS cria um "retrato" (<em>snapshot</em>) totalmente <strong>imutável</strong> do código-fonte e de toda a configuração daquele instante (memória, timeout, variáveis de ambiente, runtime e camadas).</li>
+                <li>O Lambda atribui um número sequencial exclusivo (<code>Versão 1</code>, <code>Versão 2</code>, etc.) e gera um ARN específico para ela (ex: <code>arn:aws:lambda:us-east-1:123456789012:function:FoodProductsAPI:2</code>).</li>
+                <li>Por ser imutável, o código de uma versão numerada jamais pode ser editado. Caso ocorra uma falha crítica em produção com a versão 2, você tem a garantia absoluta de poder fazer o rollback instantâneo para a versão 1 sem qualquer surpresa.</li>
+            </ul>
+        </li>
+    </ul>
+
+    <h3>2. Apelidos (Aliases) e Roteamento de Tráfego</h3>
+    <p>Os <strong>Aliases</strong> são ponteiros móveis que apontam para uma versão numerada específica da sua função Lambda. Eles representam a melhor prática arquitetural para gerenciar deploys contínuos e sem interrupções:</p>
+    <ul>
+        <li><strong>O Conceito de Alias:</strong> Você cria apelidos como <code>DEV</code>, <code>STAGE</code> ou <code>PROD</code>. Cada alias possui seu próprio ARN estável e independente (ex: <code>arn:aws:lambda:...:function:FoodProductsAPI:PROD</code>).</li>
+        <li><strong>O Problema da Abordagem Direta:</strong> Se você configurar os gatilhos do Amazon S3 ou os métodos do API Gateway apontando diretamente para o ARN fixo da <code>Versão 1</code>, no momento em que publicar a <code>Versão 2</code> será necessário acessar cada um dos serviços integrados e alterar manualmente o ARN cadastrado. Isso é trabalhoso, sujeito a erros humanos e gera indisponibilidade temporária.</li>
+        <li><strong>A Solução Elegante com Aliases:</strong> Você configura o API Gateway e o S3 para apontarem exclusivamente para o alias <code>PROD</code>.
+            <ol>
+                <li>Inicialmente, o alias <code>PROD</code> aponta para a <strong>Versão 1</strong>.</li>
+                <li>Os desenvolvedores atualizam o código em <code>$LATEST</code>, realizam testes e publicam a <strong>Versão 2</strong>.</li>
+                <li>Após validar a nova versão, basta editar o alias <code>PROD</code> para que passe a apontar para a <strong>Versão 2</strong>.</li>
+                <li>A mudança tem efeito <em>imediato</em> e propaga-se instantaneamente para todos os serviços consumidores sem alterar uma única linha de configuração no API Gateway ou no S3!</li>
+            </ol>
+        </li>
+        <li><strong>Roteamento Ponderado de Tráfego (Traffic Shifting / Canary Deployments):</strong>
+            <ul>
+                <li>Um alias pode dividir o tráfego recebido entre duas versões simultaneamente através de pesos percentuais (ex: direcionar <strong>90%</strong> das requisições para a Versão 1 estável e <strong>10%</strong> para a nova Versão 2).</li>
+                <li>Isso viabiliza deploys do tipo <strong>Canary</strong> e <strong>Blue/Green</strong> de forma totalmente automatizada através do <strong>AWS CodeDeploy</strong>, monitorando alarmes de erro no CloudWatch e revertendo o tráfego a 100% para a versão antiga caso sejam detectadas falhas na versão nova.</li>
+            </ul>
+        </li>
+    </ul>
+
+    <h3>3. Camadas do Lambda (Lambda Layers)</h3>
+    <p>Se você gerencia dezenas de funções Lambda em um ecossistema de microsserviços, é muito comum que várias delas utilizem as mesmas dependências (como drivers de conexão com PostgreSQL, o SDK de telemetria do X-Ray, ou bibliotecas pesadas de ciência de dados como Pandas e NumPy). Empacotar essas bibliotecas dentro do arquivo ZIP de cada função individual torna os deploys lentos, pesados e redundantes.</p>
+    <ul>
+        <li><strong>O que é um Lambda Layer:</strong> É um arquivo <code>.zip</code> contendo bibliotecas complementares, arquivos de dados, runtimes personalizados ou trechos de código compartilhado que a AWS descompacta no diretório <code>/opt</code> da microVM no momento da inicialização.</li>
+        <li><strong>Principais Vantagens:</strong>
+            <ul>
+                <li><strong>Pacotes Principais Minúsculos:</strong> O arquivo de implantação da função passa a conter exclusivamente o seu código de negócio. Se o código do handler for menor que 3 MB, o console da AWS permite editar, visualizar e testar o código diretamente no navegador.</li>
+                <li><strong>Deploys Ultrarrápidos:</strong> O pipeline de CI/CD não precisa retransmitir dezenas de megabytes de dependências estáticas a cada commit; apenas o arquivo de script com poucas linhas é atualizado.</li>
+                <li><strong>Governança e Reuso Centralizado:</strong> Um Layer pode ser compartilhado entre múltiplas funções, entre contas AWS da organização ou até tornado público para a comunidade de desenvolvedores.</li>
+            </ul>
+        </li>
+        <li><strong>Limitações e Regras Cruciais:</strong>
+            <ul>
+                <li>Uma função Lambda pode associar no máximo <strong>5 Layers</strong> simultaneamente.</li>
+                <li>A <strong>ordem de inclusão importa</strong>: os layers são montados sequencialmente em <code>/opt</code>, e arquivos de camadas posteriores sobrescrevem arquivos com o mesmo nome e caminho de camadas anteriores.</li>
+                <li>O tamanho limite total do pacote da função descompactado junto com todas as camadas somadas não pode exceder <strong>250 MB</strong>.</li>
+            </ul>
+        </li>
+    </ul>
+
+    <h3>4. Runtimes Customizados e Imagens de Container</h3>
+    <p>Para cenários onde os runtimes nativos gerenciados pela AWS (Node.js, Python, Java, .NET, Go e Ruby) não são suficientes, o Lambda oferece dois caminhos de extensão de infraestrutura:</p>
+    <ul>
+        <li><strong>Runtimes Customizados (Custom Runtimes):</strong>
+            <ul>
+                <li>Permite executar qualquer linguagem de programação ou versão legada específica (como Rust, C++, PHP, Perl, Elixir ou Cobol).</li>
+                <li>Funciona através da <strong>Runtime API</strong> do Lambda: você fornece um script executável chamado obrigatoriamente de <code>bootstrap</code>. Esse arquivo inicializa o ambiente, consulta a API local em loop contínuo para obter o próximo evento (<code>GET /runtime/invocation/next</code>), passa o evento para o código e envia o resultado de volta para o Lambda (<code>POST /runtime/invocation/{AwsRequestId}/response</code>).</li>
+            </ul>
+        </li>
+        <li><strong>Imagens de Container (Docker / OCI):</strong>
+            <ul>
+                <li>Se a organização já possui padrões consolidados de CI/CD, segurança e empacotamento baseados em Docker, você pode empacotar a função Lambda como uma imagem de container Docker e hospedá-la no <strong>Amazon ECR (Elastic Container Registry)</strong>.</li>
+                <li><strong>Superação de Limite de Tamanho:</strong> Enquanto pacotes ZIP são limitados a 250 MB descompactados, imagens de container no Lambda suportam tamanhos de até <strong>10 GB</strong>! Isso viabiliza o deploy serverless de modelos de Machine Learning pré-treinados e pipelines analíticos com grandes dependências nativas.</li>
+                <li>A AWS gerencia toda a execução de forma serverless: você não precisa configurar instâncias EC2, nós de Kubernetes (EKS) nem orquestradores ECS.</li>
+            </ul>
+        </li>
+    </ul>
+
+    <span class="anchor-h2" id="mod7-monitoring-debugging"></span>
+    <h2>8. Monitoring and debugging tools for application developers</h2>
+
+    <h4>Em arquiteturas serverless, você não tem acesso a servidores via SSH, nem consoles de terminal interativos ou arquivos de log armazenados localmente em <code>/var/log</code>. A capacidade de inspecionar, diagnosticar erros e medir a latência da sua aplicação depende integralmente de um ecossistema de observabilidade distribuída centralizada. As duas ferramentas fundamentais da AWS para essa finalidade são o <strong>Amazon CloudWatch</strong> e o <strong>AWS X-Ray</strong>.</h4>
+
+    <h3>1. Amazon CloudWatch: O Registrador Central de Logs e Métricas</h3>
+    <p>O CloudWatch é o destino automático e padrão de tudo o que a sua função imprime ou faz durante o ciclo de vida da execução:</p>
+    <ul>
+        <li><strong>Grupos de Logs (Log Groups):</strong>
+            <ul>
+                <li>Para cada função Lambda criada, a AWS provisiona automaticamente um grupo de logs com o padrão de nomenclatura estrito: <code>/aws/lambda/&lt;nome-da-funcao&gt;</code>.</li>
+                <li>Existe uma relação estrita de <strong>1 para 1</strong>: uma função Lambda envia todos os seus logs para seu respectivo Log Group correspondente.</li>
+                <li><em>Requisito de Permissão:</em> A Execution Role da função deve possuir permissões concedidas pela política gerenciada <code>AWSLambdaBasicExecutionRole</code> (contendo <code>logs:CreateLogGroup</code>, <code>logs:CreateLogStream</code> e <code>logs:PutLogEvents</code>) para conseguir gravar os dados no CloudWatch.</li>
+            </ul>
+        </li>
+        <li><strong>Fluxos de Logs (Log Streams):</strong>
+            <ul>
+                <li>Dentro do Log Group, os eventos de log são divididos em fluxos (<em>streams</em>) baseados na data da execução, na versão da função (ex: <code>[$LATEST]</code> ou número de versão publicada) e no identificador da instância/ambiente de execução da microVM.</li>
+            </ul>
+        </li>
+    </ul>
+
+    <h3>Anatomia de um Log de Execução no CloudWatch</h3>
+    <p>Abaixo está o registro oficial apresentado no curso demonstrando a estrutura interna dos eventos de log capturados pelo CloudWatch durante a invocação de uma função:</p>
+
+    <div class="image-container">
+        <img src="img/example_lambda_logging.png" loading="lazy" alt="Exemplo de logging no AWS Lambda via Amazon CloudWatch: Log group, Log stream e eventos START, END e REPORT">
+        <div class="image-caption">Estrutura oficial de Logs do AWS Lambda no Amazon CloudWatch: navegação hierárquica por Log Group e Log Stream, detalhando eventos de execução (START, logs de aplicação, END e REPORT).</div>
+    </div>
+
+    <p>Conforme demonstrado na imagem acima, cada invocação de uma função Lambda gera um identificador exclusivo de requisição (<strong>RequestId</strong>) e emite três eventos padronizados no fluxo de logs:</p>
+    <ol>
+        <li><strong>Evento <code>START</code>:</strong>
+            <p><code>START RequestId: 41c8dcf0-ff10-4d96-af2a-1ab5e346c937 version: $LATEST</code><br>
+            Marca o início exato da execução do código do handler para a requisição com o ID e versão especificados.</p>
+        </li>
+        <li><strong>Mensagens de Aplicação (Logs do Desenvolvedor):</strong>
+            <p><code>2020-08-27T19:35:32.553Z 41c8dcf0-ff10-4d96-af2a-1ab5e346c937 INFO ...</code><br>
+            Qualquer instrução de saída padrão impressa pelo seu código (como <code>print()</code> em Python ou <code>console.log()</code> em Node.js) é interceptada pelo runtime e gravada com timestamp UTC e com o respectivo <code>RequestId</code> para facilitar a correlação.</p>
+        </li>
+        <li><strong>Evento <code>END</code>:</strong>
+            <p><code>END RequestId: 41c8dcf0-ff10-4d96-af2a-1ab5e346c937</code><br>
+            Sinaliza que a função concluiu o processamento e retornou um resultado ou lançou uma exceção.</p>
+        </li>
+        <li><strong>Evento <code>REPORT</code> (O Registro Mais Importante para Otimização e Cobrança):</strong>
+            <p><code>REPORT RequestId: 41c8dcf0-ff10-4d96-af2a-1ab5e346c937 Duration: 64.40 ms Billed Duration: 100 ms Memory Size: 128 MB Max Memory Used: 68 MB Init Duration: 162.85 ms</code><br>
+            Traz uma síntese métrica de extrema relevância operacional e financeira:</p>
+            <ul>
+                <li><strong><code>Duration</code> (64.40 ms):</strong> Tempo real de relógio gasto pela execução do código no handler.</li>
+                <li><strong><code>Billed Duration</code> (100 ms):</strong> Tempo faturado pela AWS (arredondado para cima para o milissegundo mais próximo; historicamente em blocos de 100 ms).</li>
+                <li><strong><code>Memory Size</code> (128 MB):</strong> Quantidade total de memória RAM configurada para a função.</li>
+                <li><strong><code>Max Memory Used</code> (68 MB):</strong> O pico real de memória RAM consumido durante essa invocação. Permite identificar se a função está superdimensionada (desperdiçando dinheiro) ou próxima do limite (risco iminente de erro <em>Out Of Memory</em>).</li>
+                <li><strong><code>Init Duration</code> (162.85 ms):</strong> <em>Indicador Definitivo de Cold Start!</em> Se o campo <code>Init Duration</code> estiver presente no relatório, significa categoricamente que essa chamada passou por um <strong>Cold Start</strong> e gastou 162.85 ms baixando código e inicializando o runtime antes de rodar o handler. Em invocações subsequentes reaproveitadas (Warm Starts), o campo <code>Init Duration</code> não é exibido!</li>
+            </ul>
+        </li>
+    </ol>
+
+    <h3>2. AWS X-Ray: Rastreamento Distribuído (Distributed Tracing)</h3>
+    <p>O <strong>AWS X-Ray</strong> é o serviço projetado para rastrear a jornada completa de uma requisição de ponta a ponta conforme ela transita pelos diferentes componentes da sua arquitetura em nuvem (ex: requisição web que entra pelo API Gateway, dispara uma função Lambda, consulta uma tabela do DynamoDB e faz o upload de um arquivo para o Amazon S3).</p>
+    <p>Ele compila esses dados em um <strong>Service Map</strong> interativo, permitindo identificar visualmente qual microsserviço downstream está sofrendo picos de latência ou gerando erros 4xx/5xx.</p>
+
+    <p>Para compreender como o X-Ray opera no Lambda, você precisa dominar seus quatro conceitos fundamentais:</p>
+    <ul>
+        <li><strong>Segmentos (Segments):</strong>
+            <ul>
+                <li>Representam o bloco de trabalho de alto nível executado pelo recurso computacional principal que atendeu a requisição (neste caso, a própria função Lambda).</li>
+                <li>Registra o nome do serviço, os dados gerais da requisição, horário de início, tempo total de resposta e status final de execução (sucesso, erro ou falha).</li>
+            </ul>
+        </li>
+        <li><strong>Subsegmentos (Subsegments):</strong>
+            <ul>
+                <li>São divisões internas granulares criadas dentro de um segmento para medir e detalhar tarefas específicas.</li>
+                <li>Por exemplo: um subsegmento registra exatamente quantos milissegundos o Lambda gastou aguardando a resposta de uma consulta ao Amazon DynamoDB, ou o tempo de conexão com uma API HTTP de terceiros.</li>
+                <li>Permite isolar com precisão cirúrgica se a lentidão da função foi causada pelo processamento do seu próprio algoritmo ou pelo atraso de um banco de dados externo.</li>
+            </ul>
+        </li>
+        <li><strong>Anotações (Annotations):</strong>
+            <ul>
+                <li>Pares de chave-valor que o AWS X-Ray <strong>indexa automaticamente</strong>.</li>
+                <li><em>Quando utilizar:</em> Devem ser usadas para atributos de negócio pelos quais você precisará realizar pesquisas, filtros ou agrupamentos no console do X-Ray.</li>
+                <li><em>Exemplo clássico:</em> Salvar <code>CustomerID = "CLI-9872"</code> ou <code>OrderID = "PED-4521"</code> como Anotação permite que a equipe de suporte busque diretamente no painel do X-Ray todas as requisições daquele cliente específico para auditar o erro relatado.</li>
+            </ul>
+        </li>
+        <li><strong>Metadados (Metadata):</strong>
+            <ul>
+                <li>Pares de chave-valor que o AWS X-Ray <strong>NÃO indexa</strong>.</li>
+                <li><em>Quando utilizar:</em> Devem ser usados para anexar cargas de dados contextuais detalhadas, como payloads brutos de requisição/resposta, stack traces de depuração, variáveis de ambiente ou parâmetros que você queira examinar individualmente ao abrir os detalhes daquele trace, mas que não precisam de busca global.</li>
+                <li>Podem conter objetos complexos (JSON, listas), enquanto as anotações aceitam apenas tipos primitivos (strings, números, booleanos).</li>
+            </ul>
+        </li>
+    </ul>
+
+    <div class="callout-dica">
+        <strong>Resumo Comparativo para Certificação AWS:</strong><br>
+        <strong>Anotações (Annotations):</strong> Indexadas &rarr; Permitem buscas e filtros no console do X-Ray (ex: filtrar por <code>annotation.status = "failed"</code>).<br>
+        <strong>Metadados (Metadata):</strong> Não indexados &rarr; Apenas para consulta detalhada e depuração profunda ao abrir a linha do tempo do trace específico.
+    </div>
+
+    <span class="anchor-h2" id="mod7-lab"></span>
+    <div class="lab-section">
+        <h2>Lab 7.1: Creating Lambda Functions Using the AWS SDK for Python</h2>
+
+        <h3>Visão geral e objetivos do laboratório</h3>
+        <p>Neste laboratório prático, você utilizará o <strong>AWS SDK para Python (Boto3)</strong> para criar e implantar funções do <strong>AWS Lambda</strong> que atuarão como a inteligência de back-end do site da cafeteria. Essas funções serão invocadas dinamicamente pelas chamadas da <strong>API REST</strong> (construída no laboratório anterior no Amazon API Gateway), substituindo em definitivo os endpoints simulados (Mocks).</p>
+        <p>Uma das funções Lambda realizará varreduras (<em>scans</em>) inteligentes na tabela do <strong>Amazon DynamoDB</strong> (<code>FoodProducts</code>) para recuperar o catálogo completo de produtos ou consultará o Índice Secundário Global (GSI <code>special_GSI</code>) para filtrar apenas as sobremesas em oferta especial. Uma segunda função Lambda processará solicitações de geração de relatórios administrativos, preparando a base para a futura integração de autenticação com o Amazon Cognito.</p>
+
+        <p>Depois de concluir este laboratório, você será capaz de:</p>
+        <ul>
+            <li>Criar funções do AWS Lambda programaticamente utilizando o AWS SDK para Python (Boto3) com empacotamento ZIP e upload via Amazon S3.</li>
+            <li>Configurar uma função Lambda para consultar tanto a tabela principal quanto índices secundários globais (GSI) do DynamoDB com lógica condicional baseada no caminho de requisição.</li>
+            <li>Conceder permissões de privilégio mínimo a funções do Lambda por meio de perfis de execução do IAM (<em>Execution Roles</em>) para leitura no DynamoDB e gravação de logs no CloudWatch.</li>
+            <li>Substituir integrações simuladas (Mocks) no Amazon API Gateway por integrações reais com funções do AWS Lambda.</li>
+            <li>Reabilitar e validar o <strong>Cross-Origin Resource Sharing (CORS)</strong> nos métodos da API REST após a alteração de endpoints de integração.</li>
+            <li>Configurar <strong>Modelos de Mapeamento (Mapping Templates)</strong> em VTL (Velocity Template Language) no API Gateway para injetar variáveis de contexto (<code>$context.resourcePath</code>) diretamente no payload de evento recebido pelo Lambda.</li>
+            <li>Implantar novas versões da API em estágios (<em>Stages</em>) de produção (<code>prod</code>) e validar a reatividade ponta a ponta modificando registros no banco de dados e observando atualizações em tempo real no front-end web.</li>
+        </ul>
+
+        <h3>Duração</h3>
+        <p>A duração estimada deste laboratório é de aproximadamente <strong>90 minutos</strong>.</p>
+
+        <h3>Restrições de serviço AWS</h3>
+        <p>Neste ambiente de laboratório, o acesso aos serviços e às ações de serviços da AWS é restrito ao necessário para concluir as instruções. É possível encontrar erros caso você tente acessar outros serviços ou executar ações além das descritas neste laboratório.</p>
+
+        <h3>Cenário do Laboratório</h3>
+        <p>Os proprietários da cafeteria de Frank estão ansiosos para colocar no ar a versão dinâmica do seu site, substituindo arquivos JSON estáticos por dados reais lidos de um banco de dados NoSQL em nuvem. A desenvolvedora <strong>Sofía</strong> vem liderando essa modernização em três marcos arquiteturais consecutivos:</p>
+        <ul>
+            <li><strong>Marco 1 (Laboratório DynamoDB):</strong> Criação da tabela <code>FoodProducts</code>, inserção de itens com tipagem NoSQL e criação do índice secundário global <code>special_GSI</code> para buscas otimizadas de produtos em promoção.</li>
+            <li><strong>Marco 2 (Laboratório API Gateway):</strong> Criação da API REST <code>ProductsApi</code> com rotas <code>[GET] /products</code>, <code>[GET] /products/on_offer</code> e <code>[POST] /create_report</code> operando como <em>Mock Endpoints</em> para validar contratos JSON e CORS no front-end.</li>
+            <li><strong>Marco 3 (Este Laboratório 7.1):</strong> Criação das funções do AWS Lambda (<code>get_all_products</code> e <code>create_report</code>), concessão de perfil de execução IAM de leitura e conexão direta do API Gateway com o DynamoDB.</li>
+        </ul>
+
+        <div class="callout-dica">
+            <strong>Evolução Arquitetural do Laboratório:</strong><br>
+            <strong>Início do Laboratório:</strong> Cliente Web (S3) &rarr; API Gateway (Mocks estáticos) | Banco DynamoDB isolado sem conexão.<br>
+            <strong>Final do Laboratório:</strong> Cliente Web (S3) &rarr; API Gateway (Rotas REST) &rarr; AWS Lambda (<code>get_all_products</code> e <code>create_report</code>) &rarr; Amazon DynamoDB (Tabela <code>FoodProducts</code> + Índice <code>special_GSI</code>) + Amazon CloudWatch Logs.
+        </div>
+
+        <h3>Passo a Passo das Tarefas</h3>
+
+        <h4>Tarefa 1: Configuração do ambiente de desenvolvimento</h4>
+        <p>Nesta tarefa inicial, você prepara o ambiente de desenvolvimento no Visual Studio Code (code-server) e executa o script de automação que restaura a infraestrutura criada nos laboratórios anteriores.</p>
+        <ol>
+            <li><strong>Conectar ao VS Code IDE:</strong> No painel de instruções, clique em <em>Details &rarr; AWS: Show</em>, copie as credenciais (<code>LabIDEURL</code> e <code>LabIDEPassword</code>) e efetue o login no code-server em uma nova aba do navegador.</li>
+            <li><strong>Download e extração dos artefatos:</strong> No terminal Bash do VS Code, execute:
+                <pre><code>wget https://aws-tc-largeobjects.s3.us-west-2.amazonaws.com/CUR-TF-200-ACCDEV-2-91558/05-lab-lambda/code.zip -P /home/ec2-user/environment
+unzip code.zip</code></pre>
+            </li>
+            <li><strong>Execução do script de setup ambiental:</strong> Conceda permissão de execução e rode o script inicializador:
+                <pre><code>chmod +x ./resources/setup.sh && ./resources/setup.sh</code></pre>
+                <p>Quando o script solicitar seu endereço IP, descubra seu IPv4 público em <code>https://whatismyipaddress.com</code> e cole-o no prompt. Esse IP será injetado na política de segurança do bucket do S3 para permitir acesso web restrito ao seu navegador.</p>
+            </li>
+            <li><strong>Verificar dependências:</strong> Confirme a instalação do AWS SDK executando <code>pip3 show boto3</code>.</li>
+            <li><strong>Inspecionar os recursos criados automaticamente pelo setup:</strong>
+                <ul>
+                    <li><strong>Amazon S3:</strong> Navegue até o console do S3, localize o bucket do site da cafeteria, selecione <code>index.html</code> e copie o <em>Object URL</em> para abri-lo em uma nova aba. Observe a vitrine de doces (*Browse Pastries*) exibindo os dados estáticos.</li>
+                    <li><strong>Amazon DynamoDB:</strong> No console do DynamoDB, explore a tabela <code>FoodProducts</code> com os itens do cardápio e confirme a existência do índice secundário global <code>special_GSI</code> na guia <em>Índices</em>.</li>
+                    <li><strong>Amazon API Gateway:</strong> No console do API Gateway, abra a <code>ProductsApi</code> e constate que os métodos <code>GET /products</code>, <code>GET /products/on_offer</code> e <code>POST /create_report</code> já estão configurados com Mock Endpoints respondendo status HTTP 200.</li>
+                </ul>
+            </li>
+            <li><strong>Vincular o front-end ao API Gateway:</strong>
+                <ul>
+                    <li>No console do API Gateway, acesse <em>Estágios (Stages) &rarr; prod</em> e copie a <strong>URL de Invocação</strong> (formato: <code>https://&lt;api-id&gt;.execute-api.us-east-1.amazonaws.com/prod</code>).</li>
+                    <li>No VS Code, abra <code>resources/website/config.js</code> e substitua <code>null</code> na linha 2 pelo URL de invocação copiado:
+                        <pre><code>window.COFFEE_CONFIG = {
+  API_GW_BASE_URL_STR: "https://&lt;api-id&gt;.execute-api.us-east-1.amazonaws.com/prod",
+  COGNITO_LOGIN_BASE_URL_STR: null
+};</code></pre>
+                    </li>
+                    <li>Abra <code>python_3/update_config.py</code>, substitua <code>&lt;FMI_1&gt;</code> pelo nome do seu bucket S3 do site (obtido com <code>aws s3 ls</code>) e execute o script para enviar o novo <code>config.js</code> para o bucket:
+                        <pre><code>cd ~/environment/python_3
+python3 update_config.py</code></pre>
+                    </li>
+                    <li>Recarregue o site da cafeteria no navegador. Observe que agora a seção *Browse Pastries* exibe apenas 1 item do cardápio (o dado simulado do mock do API Gateway), comprovando que o front-end já está conectado à API REST!</li>
+                </ul>
+            </li>
+        </ol>
+
+        <h4>Tarefa 2: Criação de uma função do Lambda para recuperar dados do DynamoDB</h4>
+        <p>Nesta tarefa, você criará a função Lambda principal (<code>get_all_products</code>), responsável por consultar dinamicamente a tabela do DynamoDB e filtrar itens em oferta.</p>
+        <ol>
+            <li><strong>Análise e edição do código Python da função:</strong> Abra o arquivo <code>python_3/get_all_products_code.py</code>. Substitua os placeholders <code>&lt;FMI_1&gt;</code> e <code>&lt;FMI_2&gt;</code> pelos nomes correspondentes: a tabela <code>FoodProducts</code> e o índice <code>special_GSI</code>.
+                <pre><code>import boto3
+import json
+
+# Instanciação externa do recurso DynamoDB (Warm Start Reuse)
+dynamodb = boto3.resource('dynamodb')
+table = dynamodb.Table('FoodProducts')
+
+def lambda_handler(event, context):
+    offer_path_str = event.get('path')
+    
+    if offer_path_str is not None:
+        print("running scan on index")
+        # Consulta o Índice Secundário Global com filtro de itens em estoque
+        response = table.scan(
+IndexName='special_GSI',
+FilterExpression='special = :val',
+ExpressionAttributeValues={':val': 1}
+        )
+    else:
+        print("running scan on table")
+        # Varredura completa na tabela principal
+        response = table.scan()
+        
+    return {
+        'statusCode': 200,
+        'headers': {'Content-Type': 'application/json'},
+        'body': json.dumps({'product_item_arr': response.get('Items', [])})
+    }</code></pre>
+            </li>
+            <li><strong>Teste local no terminal:</strong> Execute o código localmente:
+                <pre><code>python3 get_all_products_code.py</code></pre>
+                <p>A saída exibirá a mensagem <code>running scan on table</code> e a lista formatada de todos os itens cadastrados no DynamoDB.</p>
+            </li>
+            <li><strong>Validação da lógica condicional do índice:</strong> No arquivo, altere temporariamente a linha 12 para <code>if offer_path_str is None:</code> e reexecute o script. Observe que a saída exibirá <code>running scan on index</code> e retornará apenas 6 itens (as sobremesas em promoção). Em seguida, <strong>reverta a linha para o estado original</strong> (<code>if offer_path_str is not None:</code>) e comente a última linha de teste local:
+                <pre><code>#print(lambda_handler({}, None))</code></pre>
+            </li>
+            <li><strong>Identificação do perfil de execução do IAM:</strong> No console do IAM, vá em <em>Perfis (Roles)</em>, pesquise pelo perfil <code>LambdaAccessToDynamoDB</code> (que concede permissões somente-leitura <code>dynamodb:Scan</code>, <code>dynamodb:Query</code>, <code>dynamodb:GetItem</code>) e copie o valor do seu <strong>ARN</strong>.</li>
+            <li><strong>Configuração do script wrapper de implantação:</strong> Abra <code>python_3/get_all_products_wrapper.py</code>, cole o ARN do perfil IAM no placeholder <code>&lt;FMI_1&gt;</code> e analise o código que utiliza o método <code>boto3.client('lambda').create_function(...)</code> com runtime Python 3.8.</li>
+            <li><strong>Empacotamento e upload do pacote de implantação no S3:</strong>
+                <pre><code>cd ~/environment/python_3
+zip get_all_products_code.zip get_all_products_code.py
+aws s3 cp get_all_products_code.zip s3://&lt;bucket-name&gt;
+python3 get_all_products_wrapper.py</code></pre>
+                <p>A mensagem <code>DONE</code> confirma que a função Lambda <code>get_all_products</code> foi criada com sucesso na AWS.</p>
+            </li>
+            <li><strong>Testes no console do AWS Lambda:</strong>
+                <ul>
+                    <li>Acesse o console do Lambda e abra a função recém-criada <code>get_all_products</code>.</li>
+                    <li><strong>Teste 1 (Products):</strong> Crie um evento de teste com payload padrão <code>{}</code> chamado <code>Products</code> e clique em <em>Testar</em>. O retorno apresentará todos os itens da tabela.</li>
+                    <li><strong>Teste 2 (onOffer):</strong> Crie um novo evento de teste chamado <code>onOffer</code> com o JSON <code>{"path": "on_offer"}</code>. Ao testar, o retorno trará exclusivamente os 6 itens em oferta e o log de execução registrará <code>running scan on index</code>!</li>
+                </ul>
+            </li>
+        </ol>
+
+        <h4>Tarefa 3: Configuração da API REST para invocar a função do Lambda</h4>
+        <p>Nesta tarefa, você substitui as integrações simuladas dos endpoints GET pela função Lambda e resolve o desafio de roteamento e CORS.</p>
+        <ol>
+            <li><strong>Substituir Mock por Lambda no método <code>GET /products</code>:</strong>
+                <ul>
+                    <li>No console do API Gateway, selecione a <code>ProductsApi</code> &rarr; método <code>GET</code> em <code>/products</code>.</li>
+                    <li>Selecione <em>Solicitação de integração &rarr; Editar</em>, selecione o tipo de integração <strong>Função do Lambda</strong>, defina a região <code>us-east-1</code>, selecione a função <code>get_all_products</code> e salve.</li>
+                </ul>
+            </li>
+            <li><strong>Reativar o CORS no recurso <code>/products</code>:</strong>
+                <p>Ao trocar a integração para o Lambda, os cabeçalhos de resposta de CORS foram removidos. Selecione o recurso <code>/products</code>, clique em <strong>Habilitar CORS</strong>, marque <em>Default 4XX</em> e <em>Default 5XX</em>, selecione o método <code>GET</code> e salve. Ao testar o método, verifique que o cabeçalho <code>Access-Control-Allow-Origin: *</code> voltou a ser emitido na resposta.</p>
+            </li>
+            <li><strong>Atualizar o método <code>GET /products/on_offer</code>:</strong>
+                <ul>
+                    <li>Altere a integração de <code>/on_offer</code> para a função Lambda <code>get_all_products</code> e reative o CORS.</li>
+                    <li>Ao testar o método inicialmente, você notará um problema: a função retorna <em>todos</em> os itens, e não apenas os itens em oferta. Isso ocorre porque o API Gateway não repassou automaticamente a rota para o objeto <code>event</code> recebido pelo Lambda!</li>
+                </ul>
+            </li>
+            <li><strong>Configurar o Modelo de Mapeamento VTL (Mapping Template):</strong>
+                <p>Para injetar a rota no payload do evento recebido pelo Lambda:</p>
+                <ul>
+                    <li>Na <em>Solicitação de integração</em> de <code>GET /products/on_offer</code>, clique em <em>Editar &rarr; Modelos de mapeamento &rarr; Adicionar modelo de mapeamento</em>.</li>
+                    <li>Em <em>Content-Type</em>, insira <code>application/json</code>.</li>
+                    <li>No template de corpo de requisição, insira o seguinte JSON parametrizado com a variável de contexto:
+                        <pre><code>{
+  "path": "$context.resourcePath"
+}</code></pre>
+                    </li>
+                    <li>Salve as alterações e reexecute o teste do método: a variável <code>$context.resourcePath</code> injeta <code>/products/on_offer</code> no evento, acionando a condição <code>if offer_path_str is not None</code> no Lambda e retornando com perfeição apenas os 6 itens em promoção!</li>
+                </ul>
+            </li>
+            <li><strong>Implantar a API:</strong> Selecione a raiz da API <code>/</code>, clique em <em>Implantar API</em>, selecione o estágio <code>prod</code> e confirme o deploy.</li>
+        </ol>
+
+        <h4>Tarefa 4: Criação de uma função do Lambda para relatar solicitações no futuro</h4>
+        <p>Nesta tarefa, você implementa a função <code>create_report</code>, que responderá ao endpoint administrativo <code>POST /create_report</code>.</p>
+        <ol>
+            <li><strong>Inspecionar o código da função:</strong> Abra <code>python_3/create_report_code.py</code>. Observe que o código retorna a mensagem <code>{'msg_str': 'Report processing, check your phone shortly'}</code> com a letra "R" maiúscula (diferenciando-se do mock anterior que continha "r" minúsculo).</li>
+            <li><strong>Comentar chamada local:</strong> Comente a última linha: <code>#print(lambda_handler(None, None))</code>.</li>
+            <li><strong>Configurar o script wrapper:</strong> Abra <code>python_3/create_report_wrapper.py</code>, insira o ARN do perfil IAM <code>LambdaAccessToDynamoDB</code> em <code>&lt;FMI_1&gt;</code> e salve.</li>
+            <li><strong>Empacotar, enviar para o S3 e criar a função:</strong>
+                <pre><code>zip create_report_code.zip create_report_code.py
+aws s3 cp create_report_code.zip s3://&lt;bucket-name&gt;
+python3 create_report_wrapper.py</code></pre>
+            </li>
+            <li><strong>Testar no console do Lambda:</strong> Crie o evento de teste <code>ReportTest</code> e verifique a resposta contendo a string de confirmação com "R" maiúsculo.</li>
+        </ol>
+
+        <h4>Tarefa 5: Configuração da API REST para invocar a função do Lambda para processar relatórios</h4>
+        <p>Nesta tarefa, você vincula a nova função Lambda ao método HTTP POST.</p>
+        <ol>
+            <li><strong>Testar método POST existente:</strong> No API Gateway, teste <code>POST /create_report</code> e confirme que a resposta ainda exibe a mensagem simulada do Mock (<code>message_str: "report requested..."</code> com "r" minúsculo).</li>
+            <li><strong>Substituir pelo Lambda:</strong> Em <em>Solicitação de integração</em>, troque o tipo para <strong>Função do Lambda</strong> e selecione a função <code>create_report</code>.</li>
+            <li><strong>Validar resposta atualizada:</strong> Reexecute o teste do método e constate a nova mensagem retornada diretamente do Lambda (<code>msg_str: "Report processing..."</code> com "R" maiúsculo).</li>
+            <li><strong>Reimplantar a API:</strong> Selecione <em>Implantar API</em> no estágio <code>prod</code>.</li>
+        </ol>
+
+        <h4>Tarefa 6: Teste da integração completa usando o site da cafeteria</h4>
+        <p>Nesta etapa final, você realiza o teste de aceitação de usuário de ponta a ponta a partir da aplicação web hospedada no Amazon S3.</p>
+        <ol>
+            <li><strong>Recarregar o site da cafeteria:</strong> Volte para a aba do site da cafeteria no navegador e dê um *Refresh* (F5).</li>
+            <li><strong>Testar a alternância de filtros no front-end:</strong>
+                <ul>
+                    <li>Na seção *Browse Pastries*, a visualização padrão <strong>on offer</strong> agora exibe exatamente 6 itens (provenientes do índice GSI do DynamoDB).</li>
+                    <li>Clique no botão <strong>view all</strong>: o catálogo expande-se imediatamente para exibir todos os itens disponíveis lidos diretamente da tabela principal do DynamoDB via chamada AJAX!</li>
+                </ul>
+            </li>
+            <li><strong>Comprovar a reatividade dinâmica do banco de dados em tempo real:</strong>
+                <ul>
+                    <li>Acesse o console do DynamoDB &rarr; tabela <code>FoodProducts</code> &rarr; <em>Explorar itens da tabela</em>.</li>
+                    <li>Selecione um produto em destaque (por exemplo, <em>apple pie slice</em> cujo preço original é 595 centavos).</li>
+                    <li>Edite o atributo <code>price_in_cents</code> para um novo valor (ex: <strong>750</strong> centavos) e salve o item.</li>
+                    <li>Volte à aba do site da cafeteria e recarregue a página: o preço do produto na vitrine web atualiza-se instantaneamente para <strong>$7.50</strong> sem necessidade de alterar arquivos estáticos nem realizar novo deploy!</li>
+                </ul>
+            </li>
+        </ol>
+
+        <h3>Conclusão do Marco e Próximos Passos</h3>
+        <p>Com a conclusão deste laboratório, Sofía alcançou com maestria o <strong>Marco 3</strong> da arquitetura da cafeteria:</p>
+        <ul>
+            <li>O site estático de alta escalabilidade hospedado no <strong>Amazon S3</strong> agora comunica-se via chamadas REST autenticadas por CORS com o <strong>Amazon API Gateway</strong>.</li>
+            <li>O API Gateway direciona as solicitações para funções do <strong>AWS Lambda</strong>, que executam sob demanda com cobrança estritamente orientada ao consumo.</li>
+            <li>O Lambda utiliza o <strong>AWS SDK para Python (Boto3)</strong> para realizar leituras performáticas na tabela e no índice global do <strong>Amazon DynamoDB</strong>, devolvendo respostas estruturadas em JSON em poucos milissegundos.</li>
+        </ul>
+        <p>O próximo desafio de Sofía será implementar o fluxo de autenticação e gerenciamento de identidades corporativas utilizando o <strong>Amazon Cognito</strong>, permitindo que apenas gerentes e funcionários autenticados emitam relatórios gerenciais da cafeteria através do método <code>POST /create_report</code>!</p>
+    </div>
+</section>

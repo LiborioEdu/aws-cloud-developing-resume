@@ -1,0 +1,1084 @@
+<span class="anchor" id="modulo-6"></span>
+<section data-module-id="modulo-6">
+    <h1>6. Developing REST APIs</h1>
+    
+    <span class="anchor-h2" id="mod6-intro"></span>
+    <h2>1. Introduction</h2>
+
+    <h4>Este módulo é dedicado a entender como os sistemas se comunicam na internet usando APIs e foca no serviço <strong>Amazon API Gateway</strong>, a porta de entrada para suas aplicações na AWS.</h4>
+
+    <h3>Conceitos-Chave (Sopa de Letrinhas):</h3>
+    <ul>
+        <li><strong>API:</strong> <em>Application Programming Interface</em> (Interface de Programação de Aplicações). É o contrato de comunicação entre dois softwares.</li>
+        <li><strong>REST:</strong> <em>Representational State Transfer</em>. É o padrão arquitetural mais comum na web para construir APIs, usando os métodos HTTP clássicos (<code>GET</code>, <code>POST</code>, <code>PUT</code>, <code>DELETE</code>).</li>
+    </ul>
+
+    <h3>Objetivos de Aprendizado:</h3>
+    <h4>Ao final do módulo, você saberá como:</h4>
+    <ul>
+        <li>Explicar o que é o <strong>Amazon API Gateway</strong>.</li>
+        <li>Seguir os passos para criar APIs RESTful do zero.</li>
+        <li>Publicar (fazer o deploy), monitorar, dar manutenção e, o mais importante, proteger (adicionar segurança) às suas APIs.</li>
+    </ul>
+
+    <h3>O Caso da Cafeteria (Cenário Prático):</h3>
+    <p>A Sofía precisa integrar o site da cafeteria (Front-end) com o banco de dados de produtos (Back-end) usando uma API. No entanto, ela quer testar como o site vai se comportar e aprovar o visual com os donos antes de ter o trabalho de escrever todo o código de integração com o DynamoDB.</p>
+
+    <div class="callout-dica">
+        <strong>A Solução Inteligente (Mock Endpoints):</strong> Para acelerar o teste, a Sofía vai criar um <strong>Mock Endpoint</strong> (um endpoint de simulação) no API Gateway. O Mock finge ser o banco de dados e devolve dados fictícios instantaneamente para o site. Assim que o site for testado e aprovado com esses dados simulados, ela apenas atualiza a configuração do API Gateway para apontar para o DynamoDB real.
+    </div>
+
+    <div class="image-container">
+        <img src="img/rest_apis_architecture.png" loading="lazy" alt="REST APIs as part of developing a cloud application">
+    </div>
+
+    <span class="anchor-h2" id="mod6-introducing-apis"></span>
+    <h2>2. Introducing APIs</h2>
+
+    <h3>O que é uma API?</h3>
+    <p>A sigla significa <strong>Application Programming Interface</strong> (Interface de Programação de Aplicações). Na prática, uma API é um mecanismo que simplifica a vida do desenvolvedor fazendo três coisas:</p>
+    <ul>
+        <li><strong>Abstrai a complexidade:</strong> O cliente (front-end) não precisa saber como o banco de dados funciona por baixo dos panos.</li>
+        <li><strong>Expõe apenas o necessário:</strong> O front-end só tem acesso aos dados e ações que a API permite.</li>
+        <li><strong>Estabelece um contrato:</strong> Define regras claras de como a informação deve ser enviada e recebida.</li>
+    </ul>
+
+    <div class="callout-dica">
+        <strong>Exemplo clássico:</strong> Quando você usa o "Login com o Facebook" ou paga algo via "PayPal" em um site terceiro, o site está apenas chamando a API dessas empresas.
+    </div>
+
+    <h3>Requisições e Respostas (Requests and Responses)</h3>
+    <p>A comunicação funciona em um ciclo de pergunta (Requisição) e resposta. Para isso, utiliza-se protocolos. Os mais comuns são o <strong>HTTP</strong> (padrão da web), <strong>SOAP</strong> (baseado em XML) e <strong>WebSockets</strong> (protocolo bidirecional para aplicações em tempo real, cujas URLs começam com <code>ws://</code>).</p>
+
+    <div class="callout-dica">
+        <strong>Dica de segurança:</strong> Sempre utilize as versões seguras desses protocolos: <strong>HTTPS</strong> e <strong>WSS</strong>.
+    </div>
+
+    <h3>Códigos de Status HTTP (Importante para o dia a dia e provas)</h3>
+    <p>Toda resposta da API devolve um número que indica o que aconteceu. Eles são divididos em três famílias principais:</p>
+    <ul>
+        <li><strong>Série 200 (20x - Sucesso):</strong> Tudo correu perfeitamente. Ex: <code>200 OK</code> ou <code>201 Created</code> (dado criado com sucesso).</li>
+        <li><strong>Série 400 (40x - Erro do Cliente):</strong> A culpa é de quem fez a requisição. O cliente mandou uma senha errada, faltou uma informação obrigatória ou ele não tem permissão. Ex: <code>403 Forbidden</code> ou <code>404 Not Found</code>.</li>
+        <li><strong>Série 500 (50x - Erro do Servidor):</strong> A culpa é do servidor (Back-end/AWS). O código deu um bug interno ou o banco de dados caiu. Ex: <code>500 Internal Server Error</code>.</li>
+    </ul>
+
+    <h3>O que é uma API RESTful?</h3>
+    <p><strong>REST (Representational State Transfer)</strong> não é uma linguagem de programação, é um estilo de arquitetura. É a forma padrão e mais adotada pelo mercado para estruturar como um cliente pede dados a um servidor web. Quando uma API segue rigorosamente as regras e os princípios do estilo REST, ela é chamada de <strong>RESTful API</strong>.</p>
+
+    <span class="anchor-h2" id="mod6-introducing-api-gateway"></span>
+    <h2>3. Introducing API Gateway</h2>
+
+    <p>Para entender o serviço, primeiro você precisa entender o conceito. Um <strong>API Gateway funciona como um Proxy</strong> — um intermediário blindado entre o cliente (o front-end) e o seu servidor (o back-end).</p>
+
+    <p>Se você não tivesse um API Gateway, o seu servidor teria que processar as regras de acesso de todas as pessoas que chegassem, o que desperdiçaria muito processamento. O API Gateway assume o trabalho de "recepção e segurança", fazendo coisas como:</p>
+    <ul>
+        <li><strong>Limitação de Taxa (Rate Limiting / Throttling):</strong> Age como o "segurança da balada". Se muitos acessos chegarem ao mesmo tempo, ele segura a onda para que o seu servidor não caia por sobrecarga.</li>
+        <li><strong>Validação de Chaves:</strong> Verifica se quem está chamando a API possui uma <em>API Key</em> válida (como as chaves do Google Maps ou Twitter) e bloqueia acessos inválidos antes mesmo que cheguem ao seu servidor.</li>
+        <li><strong>Roteamento e Filtros:</strong> Pode redirecionar o tráfego com base na região do usuário (geo-routing) ou nos cabeçalhos da requisição.</li>
+    </ul>
+
+    <div class="image-container">
+        <img src="img/api_gateway_proxy.png" loading="lazy" alt="An API gateway is a proxy">
+    </div>
+
+    <h3>O Amazon API Gateway</h3>
+    <p>É o serviço <strong>totalmente gerenciado e serverless</strong> (sem servidor) da AWS que atua como a "porta de entrada" (<em>front door</em>) das suas aplicações.</p>
+
+    <div class="callout-dica">
+        <strong>A grande vantagem:</strong> Você não precisa de servidores (EC2) para hospedar sua API. O API Gateway pode receber a requisição, transformar os dados, invocar um código no <strong>AWS Lambda</strong> (ou até mesmo ir direto no <strong>DynamoDB</strong>), e devolver a resposta formatada para o cliente. Você só paga pelas chamadas que a API receber e pelos dados transferidos.
+    </div>
+
+    <h3>Protocolos Suportados (Importante para Provas)</h3>
+    <p>O serviço suporta dois tipos principais de APIs, com comportamentos opostos:</p>
+
+    <h4>APIs RESTful:</h4>
+    <ul>
+        <li>Comunicação padrão de <strong>Requisição e Resposta (Request/Response)</strong>.</li>
+        <li>Usa os métodos HTTP tradicionais (<code>GET</code>, <code>POST</code>, <code>PUT</code>, <code>DELETE</code>).</li>
+        <li>É uma comunicação curta (<em>short-lived</em>) e <strong>Sem Estado (Stateless)</strong> — ou seja, cada requisição é independente e o servidor não "lembra" da requisição anterior.</li>
+    </ul>
+
+    <h4>APIs WebSockets:</h4>
+    <ul>
+        <li>Abre um canal de comunicação de <strong>mão dupla (bidirecional)</strong>.</li>
+        <li>É uma comunicação contínua (<em>long-lived</em>) e <strong>Com Estado (Stateful)</strong> — a conexão fica aberta e mantida ativa entre cliente e servidor.</li>
+        <li><strong>Uso ideal:</strong> Chats em tempo real, jogos multiplayer e painéis de monitoramento / dashboards com atualizações contínuas.</li>
+    </ul>
+
+    <span class="anchor-h2" id="mod6-introducing-api-gateway-part2"></span>
+    <h2>4. Introducing API Gateway - Part 2</h2>
+
+    <p>Quando você clica em "Criar API" no Amazon API Gateway, a AWS te dá algumas opções arquiteturais. É crucial entender a diferença entre elas para não gastar dinheiro à toa ou perder performance.</p>
+
+    <h3>1. REST API vs. HTTP API</h3>
+    <p>Para comunicações tradicionais de requisição/resposta, você tem duas opções:</p>
+    <ul>
+        <li><strong>REST API (Modo Avançado):</strong> Oferece controle total e absoluto. É aqui que você consegue criar <strong>Mock Endpoints</strong> (como a Sofía vai fazer), configurar autenticações super complexas e manipular pesadamente os dados que entram e saem.</li>
+        <li><strong>HTTP API (Modo Simples e Leve):</strong> É a versão simplificada. Serve perfeitamente se você só precisa de um proxy básico (exemplo: uma porta de entrada simples para acionar uma função do AWS Lambda).
+            <div class="callout-dica">
+                <strong>A grande vantagem:</strong> É muito mais rápido (menor latência) e custa <strong>até 70% menos</strong> que a versão REST tradicional. Se você não precisa de recursos avançados, escolha sempre a HTTP API.
+            </div>
+        </li>
+    </ul>
+
+    <h3>2. WebSockets (Para aplicações "faladoras")</h3>
+    <p>Se você for criar um chat, um jogo multiplayer ou um painel financeiro em tempo real, o HTTP normal é uma péssima escolha. O HTTP exige o envio de "envelopes" pesados (cabeçalhos, tokens de segurança) a cada nova mensagem enviada, o que desperdiça banda e causa lentidão.</p>
+
+    <p><strong>A Solução WebSocket:</strong> Ele estabelece um "tubo" de conexão bidirecional. O envelope pesado de segurança só é enviado uma vez (na abertura da conexão). Depois disso, as mensagens (como "Oi" ou "LOL") trafegam de forma extremamente leve e instantânea nos dois sentidos.</p>
+
+    <div class="callout-dica">
+        <strong>Dica:</strong> Sempre use a versão segura, o <strong>WSS</strong>.
+    </div>
+
+    <div class="image-container">
+        <img src="img/websockets_vs_http.png" loading="lazy" alt="Envelope bloat per message (HTTP) vs Just the data after the connection is established (WS)">
+    </div>
+
+    <h3>Gerenciamento e Implantação (Infraestrutura como Código)</h3>
+    <p>Em vez de clicar botões no console da AWS para criar sua API, profissionais utilizam ferramentas de automação (Deploy):</p>
+
+    <h4>Desenvolvimento (Develop):</h4>
+    <ul>
+        <li><strong>AWS Management Console:</strong> Interface gráfica interativa no navegador para testes e visualização rápida.</li>
+        <li><strong>AWS Command Line Interface (AWS CLI):</strong> Linha de comando para automação por scripts e chamadas de terminais.</li>
+        <li><strong>OpenAPI Specification (Swagger):</strong> Padrões da indústria para desenhar e documentar a estrutura da sua API.</li>
+    </ul>
+
+    <h4>Implantação (Deploy):</h4>
+    <ul>
+        <li><strong>AWS SAM (Serverless Application Model):</strong> Uma extensão do CloudFormation feita sob medida para aplicações serverless. É excelente para testar APIs e funções Lambda localmente no seu computador antes de enviar para a nuvem.</li>
+        <li><strong>AWS CloudFormation:</strong> Serviço clássico para criar recursos na AWS usando arquivos de texto em formato JSON ou YAML.</li>
+        <li><strong>AWS CDK (Cloud Development Kit):</strong> Permite que você escreva a sua infraestrutura usando linguagens de programação reais (como Python, TypeScript ou Java) em vez de escrever arquivos de configuração estáticos.</li>
+    </ul>
+
+    <div class="image-container">
+        <img src="img/api_develop_deploy_tools.png" loading="lazy" alt="Ferramentas de Desenvolvimento e Implantação de APIs na AWS (Develop vs Deploy)">
+    </div>
+
+                    <span class="anchor-h2" id="mod6-creating-rest-api"></span>
+    <h2>5. Creating a REST API</h2>
+
+    <p>Quando você cria uma API no <strong>Amazon API Gateway</strong>, a AWS gera automaticamente uma <strong>URL base (Endpoint)</strong> estruturada de forma padronizada:</p>
+
+    <pre><code>https://{restapi_id}.execute-api.{region}.amazonaws.com/{stage_name}/</code></pre>
+
+    <p>Anatomia da URL base gerada:</p>
+    <ul>
+        <li><code>{restapi_id}</code>: O identificador alfanumérico exclusivo da API (API Identifier) gerado pela AWS.</li>
+        <li><code>{region}</code>: A região AWS onde a API foi provisionada (ex: <code>us-east-2</code>).</li>
+        <li><code>{stage_name}</code>: O nome do estágio de implantação da API (ex: <code>dev</code>, <code>staging</code>, <code>prod</code>).</li>
+    </ul>
+
+    <p>Você pode realizar a criação tanto pelo <strong>Console da AWS</strong> quanto de forma automatizada por linha de comando através da <strong>AWS CLI</strong> (ou via IaC com CloudFormation, SAM e CDK).</p>
+
+    <div class="image-container">
+        <img src="img/api_base_structure.png" loading="lazy" alt="Base structure for REST and HTTP APIs no Amazon API Gateway">
+    </div>
+
+    <h3>Métodos e Rotas (Methods and Routes)</h3>
+    <p>Uma API do mundo real faz muito mais do que apenas uma única tarefa. Você não cria uma API diferente para listar produtos e outra para editar produtos; você cria <strong>Rotas diferentes dentro da mesma API</strong>.</p>
+
+    <p>A combinação de um <strong>Método HTTP</strong> (a ação pretendida) e um <strong>Caminho (Path)</strong> define uma <strong>Rota</strong>. Cada Rota pode acionar um código (como uma função Lambda) diferente:</p>
+    <ul>
+        <li><strong>Listar tudo:</strong> <code>[GET] /products</code> &rarr; Aciona a função Lambda <code>readFn</code>.</li>
+        <li><strong>Ver um item específico:</strong> <code>[GET] /products/{product_id}</code> &rarr; Aciona a mesma função <code>readFn</code>, mas a função percebe que o ID foi passado no caminho e faz uma busca específica em vez de listar todos.</li>
+        <li><strong>Atualizar produto:</strong> <code>[PUT] /products/{product_id}</code> &rarr; Aciona a função Lambda <code>updateFn</code> para regravar os dados do produto.</li>
+    </ul>
+
+    <div class="image-container">
+        <img src="img/api_routes_http_requests.png" loading="lazy" alt="Exemplos de chamadas HTTP GET e PUT em rotas REST do API Gateway">
+    </div>
+
+    <p>Exemplo prático de criação de rotas via AWS CLI (<code>aws apigatewayv2 create-route</code>):</p>
+    <pre><code># Rota GET para produto específico por ID:
+aws apigatewayv2 create-route     --api-id 03z501670a     --route-key 'GET /products/{product_id}'     --target arn:aws:lambda:us-east-2:123456789012:function:readFn
+
+# Rota GET para listar o catálogo completo de produtos:
+aws apigatewayv2 create-route     --api-id 03z501670a     --route-key 'GET /products'     --target arn:aws:lambda:us-east-2:123456789012:function:readFn
+
+# Rota PUT para atualização de dados de um produto:
+aws apigatewayv2 create-route     --api-id 03z501670a     --route-key 'PUT /product/{product_id}'     --target arn:aws:lambda:us-east-2:123456789012:function:updateFn</code></pre>
+
+    <h3>Variável de Caminho "Guloso" (Greedy Path Variable: <code>{proxy+}</code>)</h3>
+    <p>Se você não quiser configurar cada rota ou subcaminho separadamente no API Gateway, pode utilizar o atalho <strong><code>{proxy+}</code></strong> (ex: <code>GET /products/{proxy+}</code>).</p>
+    <ul>
+        <li><strong>O que faz:</strong> Ele atua como um recurso <em>"pega-tudo" (catch-all)</em>. Qualquer coisa digitada após <code>/products/</code> (ex: <code>/products/34/detalhes/extra</code>) será capturada e enviada diretamente para a sua Função Lambda.</li>
+    </ul>
+
+    <div class="image-container">
+        <img src="img/greedy_path_proxy.png" loading="lazy" alt="Using the greedy path variable {proxy+} no API Gateway com integração AWS Lambda">
+    </div>
+
+    <div class="callout-dica">
+        <strong>Desvantagem &amp; Melhor Prática:</strong> Ao usar o <code>{proxy+}</code>, o trabalho pesado de descobrir para onde o usuário queria ir e qual ação tomar será empurrado para o código da sua Função Lambda, aumentando latência e complexidade de código. <strong>Melhor prática:</strong> Prefira caminhos e rotas específicos e declarativos no API Gateway sempre que possível!
+    </div>
+
+    <h3>Criando APIs WebSockets</h3>
+    <p>Para fluxos bidirecionais contínuos e comunicação em tempo real, podemos criar uma API WebSocket no API Gateway:</p>
+    <pre><code>aws apigatewayv2 create-api     --name 'mywebsocketapi'     --protocol-type WEBSOCKET     --route-selection-expression '.body.action'</code></pre>
+
+    <div class="image-container">
+        <img src="img/creating_websocket_api.png" loading="lazy" alt="Creating a WebSocket API com route-selection-expression e payload JSON">
+    </div>
+
+    <p>A criação de uma API WebSocket exige um parâmetro especial: o <strong><code>route-selection-expression</code></strong> (Expressão de Seleção de Rota).</p>
+    <ul>
+        <li><strong>Como funciona:</strong> Como o WebSocket é um canal contínuo onde os dados trafegam nos dois sentidos em formato JSON, o API Gateway precisa saber como inspecionar o seu JSON para decidir qual rota acionar.</li>
+        <li>Se você configurar a expressão para ler a chave <code>.body.action</code>, sempre que o cliente enviar um JSON como:
+            <pre><code>{
+  "service": "chat",
+  "action": "join",
+  "data": {
+    "room": "room1234"
+  }
+}</code></pre>
+            O API Gateway avaliará o campo <code>"action": "join"</code> e saberá imediatamente que deve acionar o código que coloca o usuário na sala de chat especificada.
+        </li>
+        <li><strong>Rotas Padrão do Sistema:</strong> O WebSocket possui três rotas nativas gerenciadas:
+            <ul>
+                <li><code></code>: Acionada no momento exato em que o cliente estabelece a conexão inicial.</li>
+                <li><code></code>: Acionada quando o cliente ou servidor encerra a sessão.</li>
+                <li><code></code>: Acionada como rota de fallback se a mensagem enviada não bater com nenhuma outra regra customizada.</li>
+            </ul>
+        </li>
+    </ul>
+
+    <h3>Importando APIs (Swagger / OpenAPI)</h3>
+    <p>Se você (ou sua equipe) já desenhou toda a arquitetura da sua API em um arquivo padronizado <strong>Swagger</strong> ou <strong>OpenAPI</strong> (em formato JSON ou YAML), você não precisa refazer o trabalho clicando botão por botão no console da AWS.</p>
+    <p>Você pode usar o comando de importação da AWS CLI (<code>aws apigateway import-rest-api</code> ou <code>aws apigatewayv2 reimport-api</code>) ou a opção de importação no Console, e o API Gateway cria todas as rotas, métodos, parâmetros e modelos automaticamente a partir daquele arquivo.</p>
+
+    <span class="anchor-h2" id="mod6-integrating-api-gateway-part1"></span>
+    <h2>6. Part 1: Integrating with API Gateway</h2>
+
+    <p>Agora que a API foi criada, precisamos decidir <strong>como ela será exposta para o mundo</strong> (ou restrita à rede interna) e como o front-end (ou clientes externos) vai se comunicar com ela.</p>
+
+    <p>A forma como você publica a sua API afeta diretamente o <strong>desempenho (latência)</strong>, os <strong>custos</strong> e a <strong>segurança</strong>. O Amazon API Gateway oferece três tipos de configuração de rede (endpoints):</p>
+
+    <div class="image-container">
+        <img src="img/api_gateway_endpoint_types.png" loading="lazy" alt="Tipos de Endpoints no Amazon API Gateway: Edge-Optimized, Regional e Private">
+    </div>
+
+    <h3>Tipos de Endpoints de Rede (Endpoint Types)</h3>
+    <ul>
+        <li>
+            <strong>1. Edge-Optimized (Otimizado para Borda):</strong>
+            <ul>
+                <li><strong>Exclusividade:</strong> Exclusivo para <strong>APIs REST clássicas</strong> (<em>REST only</em>). Não é suportado para HTTP APIs nem WebSockets.</li>
+                <li><strong>Como funciona:</strong> A AWS provisiona e gerencia automaticamente uma distribuição global do <strong>Amazon CloudFront</strong> na frente da sua API. As requisições dos clientes são roteadas para o ponto de presença (<em>Edge Location</em>) do CloudFront mais próximo geograficamente e trafegam pela rede troncal ultra-rápida e privada da AWS até a região onde a API está implantada.</li>
+                <li><strong>Quando usar:</strong> Quando os usuários e clientes da sua aplicação estiverem geograficamente dispersos pelo mundo. Reduz drasticamente a latência de handshake TLS e oferece proteção nativa contra ataques DDoS volumétricos através do <strong>AWS Shield Standard</strong>.</li>
+            </ul>
+        </li>
+        <li>
+            <strong>2. Regional (Regional):</strong>
+            <ul>
+                <li><strong>Suporte:</strong> Suportado por todos os tipos de API no API Gateway (<strong>REST, HTTP e WebSocket</strong>).</li>
+                <li><strong>Como funciona:</strong> A API é implantada e atende requisições estritamente dentro da Região AWS selecionada (ex: <code>us-east-1</code> ou <code>sa-east-1</code>). Não há distribuição do CloudFront gerenciada pela AWS na frente.</li>
+                <li><strong>Quando usar:</strong> É o formato padrão e recomendado para a maioria dos casos de uso gerais, especialmente quando as requisições se originam dentro da mesma região (como instâncias Amazon EC2, containers no ECS/EKS ou outros microsserviços na mesma VPC).</li>
+                <li>
+                    <div class="callout-dica">
+                        <strong>Melhor Prática Arquitetural:</strong> Para aplicações voltadas à internet pública, a AWS recomenda criar um endpoint <strong>Regional</strong> e configurar a sua <strong>própria distribuição do CloudFront</strong> (<em>Customer-Managed CloudFront Distribution</em>) na frente dele. Isso proporciona controle granular total sobre políticas de cache (TTL), regras avançadas do <strong>AWS WAF</strong>, certificados SSL/TLS customizados e consolidação de múltiplos backends/estáticos sob o mesmo domínio.
+                    </div>
+                </li>
+            </ul>
+        </li>
+        <li>
+            <strong>3. Private (Privado):</strong>
+            <ul>
+                <li><strong>Exclusividade:</strong> Exclusivo para <strong>APIs REST clássicas</strong> (<em>REST only</em>).</li>
+                <li><strong>Como funciona:</strong> Essa API <strong>não possui nenhum endereço IP público nem acesso à internet</strong>. Ela só pode ser acessada de dentro da sua nuvem privada virtual (<strong>Amazon VPC</strong>) através de um <strong>VPC Interface Endpoint</strong> (alimentado pela tecnologia <strong>AWS PrivateLink</strong>).</li>
+                <li><strong>Quando usar:</strong> Ideal para arquiteturas corporativas de microsserviços internos, sistemas de backoffice, comunicação entre parceiros via VPC Peering / Direct Connect ou qualquer tráfego confidencial regulamentado que nunca deve passar pela internet pública.</li>
+            </ul>
+        </li>
+    </ul>
+
+    <h3>Como o Front-end chama a API? (HTTPS vs. SDKs)</h3>
+    <p>No caso de uso prático da cafeteria (Café Business Case), quando a Sofía for conectar o site ao API Gateway, ela tem dois caminhos possíveis para a comunicação:</p>
+
+    <div class="image-container">
+        <img src="img/using_client_side_sdks.png" loading="lazy" alt="Chamadas de Front-end com Client-side SDKs no Amazon API Gateway">
+    </div>
+
+    <ul>
+        <li>
+            <strong>1. Requisições HTTPS Padrão (Abordagem Recomendada):</strong>
+            <p>O site consome a API através de ferramentas e bibliotecas web nativas e consagradas (como <code>fetch()</code> nativo ou <code>axios</code> no JavaScript) para realizar requisições HTTP clássicas (<code>GET</code>, <code>POST</code>, <code>PUT</code>) diretamente para a URL pública gerada pelo API Gateway.</p>
+            <p>É o padrão universal da web: simples, leve, compatível com qualquer biblioteca ou framework moderno (React, Vue, Angular, Vanilla JS) e desacoplado.</p>
+        </li>
+        <li>
+            <strong>2. Gerar um SDK Customizado no API Gateway:</strong>
+            <p>Para REST APIs, o API Gateway oferece um recurso de compilação automática: você clica em "Generate SDK" e a AWS gera um pacote de software pronto para download em diversas plataformas e linguagens, incluindo <strong>JavaScript, Android (Java), iOS (Objective-C/Swift), Java e Ruby</strong>.</p>
+            <p>Esse SDK cliente já encapsula chamadas para todos os métodos e modelos definidos na sua API.</p>
+        </li>
+    </ul>
+
+    <div class="callout-dica">
+        <strong>Alerta Crítico de Segurança (Armadilha em Front-ends Públicos):</strong>
+        <br>
+        Embora pareça tentador e prático baixar o SDK JavaScript gerado e usá-lo diretamente no código do site da cafeteria, isso exige que credenciais da AWS (chaves de acesso IAM ou tokens assinados) sejam embutidas no código executado no navegador do usuário.
+        <br><br>
+        <strong>Qualquer usuário com o DevTools (F12) aberto poderia inspecionar e roubar essas credenciais!</strong> Portanto, para aplicações web voltadas ao público (SPAs e sites estáticos), <strong>nunca utilize SDKs que dependam de credenciais no cliente — mantenha sempre a comunicação via requisições HTTPS padrão</strong> (utilizando cabeçalhos como <code>Authorization: Bearer &lt;token-jwt&gt;</code> ou cookies HTTP-Only seguros para autenticação).
+    </div>
+
+    <span class="anchor-h2" id="mod6-integrating-api-gateway-part2"></span>
+    <h2>7. Part 2: Integrating with API Gateway</h2>
+
+    <p>Para conectar o mundo externo (seu site, aplicativo mobile ou clientes de API) com os recursos internos da AWS, o <strong>Amazon API Gateway</strong> precisa saber exatamente com quem ele vai falar. É aqui que entram as <strong>Integrações de Back-end (Backend Integrations)</strong>.</p>
+
+    <p>Muitos serviços da AWS (como o AWS Lambda e o Amazon DynamoDB) não possuem URLs públicas nativas abertas para a internet. Você não pode simplesmente fazer um <code>GET</code> ou <code>POST</code> direto neles a partir do navegador. O API Gateway atua como esse procurador inteligente (<em>reverse proxy</em>), recebendo a chamada HTTP do cliente, autenticando e acionando esses serviços internamente através da rede privada da AWS.</p>
+
+    <div class="image-container">
+        <img src="img/backend_integrations.png" loading="lazy" alt="Backend Integrations no Amazon API Gateway: Lambda, DynamoDB, S3, HTTP Endpoints, VPC Link e Mock">
+    </div>
+
+    <h3>Opções de Integração de Back-end</h3>
+    <p>O API Gateway oferece suporte nativo e flexível a diversas origens de dados e processamento:</p>
+
+    <ul>
+        <li>
+            <strong>Serviços AWS Diretos (Direct AWS Service Integration):</strong>
+            <p>O API Gateway pode acionar funções do <strong>AWS Lambda</strong>, ler ou gravar arquivos diretamente no <strong>Amazon S3</strong>, executar queries ou gravações no <strong>Amazon DynamoDB</strong>, publicar mensagens no <strong>Amazon SQS / SNS</strong> ou iniciar fluxos de trabalho no <strong>AWS Step Functions</strong> — tudo isso de forma direta, muitas vezes sem precisar escrever nenhuma linha de código intermediária.</p>
+        </li>
+        <li>
+            <strong>Endpoints HTTP Públicos (HTTP Proxy &amp; Integrations):</strong>
+            <p>Permite conectar a sua API a servidores HTTP tradicionais hospedados no <strong>Amazon EC2</strong>, aplicações no <strong>AWS Elastic Beanstalk</strong>, ou a qualquer outra API REST/HTTP pública de terceiros na internet (como gateways de pagamento, serviços de consulta de CEP, microsserviços legados externos).</p>
+        </li>
+        <li>
+            <strong>VPC Link (Acesso Seguro à Rede Privada):</strong>
+            <p>Um recurso poderoso e corporativo para conectar sua API pública (ou regional) a recursos e microsserviços privados que estão trancados dentro da sua <strong>Amazon VPC</strong>. O API Gateway se conecta através de um <strong>VPC Link</strong> a um <strong>Network Load Balancer (NLB)</strong> ou <strong>Application Load Balancer (ALB)</strong> interno, podendo estender a comunicação até servidores <em>on-premises</em> conectados via <strong>AWS Direct Connect</strong> ou VPN privada.</p>
+        </li>
+        <li>
+            <strong>Mock Endpoints (O truque da Sofía!):</strong>
+            <p><strong>Exclusivo do modo REST API.</strong> Permite que o API Gateway retorne respostas falsas (<em>mocked / fakes</em>) estáticas com códigos de status HTTP e payloads JSON pré-configurados, <strong>sem acionar nenhum backend real</strong>.</p>
+            <div class="callout-dica">
+                <strong>O caso da cafeteria da Sofía:</strong> É perfeito para acelerar o desenvolvimento e prototipagem ágil! A desenvolvedora front-end pode começar a construir e testar a interface do site consumindo dados estáticos realistas do Mock Endpoint, enquanto a equipe de back-end ainda está modelando as tabelas e codificando as funções Lambda.
+            </div>
+        </li>
+    </ul>
+
+    <h3>O Fluxo de Integração (O Caminho da Requisição em 4 Etapas)</h3>
+    <p>Quando uma requisição chega ao API Gateway (em uma REST API clássica), ela não passa reto para o backend. Ela atravessa um <strong>pipeline estruturado em 4 etapas</strong> que permite inspecionar, validar, transformar e enriquecer os dados nos dois sentidos:</p>
+
+    <div class="image-container">
+        <img src="img/integration_flow_4_steps.png" loading="lazy" alt="Example integration flow no API Gateway: Method Request, Integration Request, Integration Response e Method Response">
+    </div>
+
+    <ol>
+        <li>
+            <strong>1. Requisição do Método (Method Request):</strong>
+            <p>É a "porta da frente" da API. Representa exatamente o que o cliente (ex: o site da cafeteria) enviou na chamada HTTP. Aqui o API Gateway realiza:</p>
+            <ul>
+                <li><strong>Modelagem &amp; Validação:</strong> Inspeciona parâmetros de URL (query strings, path parameters), cabeçalhos obrigatórios e valida o formato do corpo da requisição (body) contra um JSON Schema. Se os dados forem inválidos, a requisição é rejeitada de imediato (HTTP 400 Bad Request) sem gastar execução de Lambda ou banco.</li>
+                <li><strong>Autorização:</strong> Validação de chaves de API (API Keys), tokens JWT via Amazon Cognito ou Lambda Authorizers.</li>
+            </ul>
+        </li>
+        <li>
+            <strong>2. Requisição de Integração (Integration Request):</strong>
+            <p>Aqui ocorre a <strong>mágica da transformação</strong> (<em>mapping templates</em> via Apache Velocity Template Language - VTL). O API Gateway pega os dados brutos enviados pelo cliente e os formata no padrão exato exigido pelo backend de destino (ex: envelopando em parâmetros de evento para a função Lambda ou gerando parâmetros DynamoDB).</p>
+        </li>
+        <li>
+            <strong>3. Resposta da Integração (Integration Response):</strong>
+            <p>O backend (Lambda, banco DynamoDB ou serviço HTTP) conclui o processamento e devolve a resposta em formato "cru" para o API Gateway. Nesta etapa, o API Gateway pode interceptar erros customizados, códigos de erro internos do backend e aplicar regras de mapeamento de status codes HTTP (ex: transformar um erro interno do Lambda em um HTTP 404 ou 500 elegante).</p>
+        </li>
+        <li>
+            <strong>4. Resposta do Método (Method Response):</strong>
+            <p>É a etapa de saída final voltada para o cliente. O API Gateway pega o dado já processado, aplica cabeçalhos de resposta HTTP necessários (como cabeçalhos de CORS <code>Access-Control-Allow-Origin</code>, content-type <code>application/json</code>), valida o modelo de resposta e despacha a resposta HTTP final para o cliente solicitante.</p>
+        </li>
+    </ol>
+
+    <span class="anchor-h2" id="mod6-integrating-api-gateway-part3"></span>
+    <h2>8. Part 3: Integrating with API Gateway</h2>
+
+    <p>A grande decisão arquitetural ao conectar o <strong>Amazon API Gateway</strong> a uma função do <strong>AWS Lambda</strong> é definir quem fará o "trabalho sujo" de formatar e envelopar a resposta HTTP para o cliente: <strong>o próprio código do Lambda</strong> ou o <strong>API Gateway</strong>.</p>
+
+    <div class="image-container">
+        <img src="img/lambda_proxy_vs_non_proxy.png" loading="lazy" alt="Lambda non-proxy vs. proxy integration no Amazon API Gateway">
+    </div>
+
+    <h3>1. Integração Proxy (O Caminho Direto: "Passa-Fio")</h3>
+    <p>É a opção padrão e mais comum no desenvolvimento moderno serverless. O API Gateway atua essencialmente como um intermediário transparente ("passa-fio"):</p>
+    <ul>
+        <li><strong>Como funciona:</strong> O API Gateway recebe a requisição HTTP completa do cliente (caminho, query parameters, headers, body, contexto) e a entrega intacta como um único evento JSON para a função Lambda. O API Gateway não transforma nada na entrada nem na saída — a resposta retornada pela função passa direto para o cliente.</li>
+        <li><strong>Responsabilidade total do desenvolvedor:</strong> A obrigação de montar e devolver uma resposta HTTP estruturada e válida é <strong>100% do código da função Lambda</strong>.</li>
+        <li>
+            <strong>Estrutura de Retorno Obrigatória:</strong> O Lambda não pode devolver apenas os dados brutos (como um objeto simples). A função deve retornar explicitamente um objeto JSON contendo chaves de rede obrigatórias:
+            <ul>
+                <li><code>statusCode</code> (numérico): Código de status HTTP (ex: <code>200</code>, <code>201</code>, <code>400</code>, <code>403</code>, <code>500</code>).</li>
+                <li><code>headers</code> (objeto): Cabeçalhos HTTP da resposta (ex: <code>Content-Type: application/json</code>, <code>Access-Control-Allow-Origin: *</code> para CORS).</li>
+                <li><code>body</code> (string): O payload real de resposta serializado obrigatoriamente como string (ex: via <code>JSON.stringify()</code> em Node.js ou <code>json.dumps()</code> em Python).</li>
+            </ul>
+        </li>
+    </ul>
+
+    <p>Exemplo de retorno obrigatório em Python no modelo Proxy:</p>
+    <pre><code>import json
+
+def lambda_handler(event, context):
+    # Lógica de negócio...
+    dados_resposta = {
+        "pedidoId": "caf-1092",
+        "status": "Em preparo",
+        "cafe": "Cappuccino Aveludado"
+    }
+
+    return {
+        "statusCode": 200,
+        "headers": {
+"Content-Type": "application/json",
+"Access-Control-Allow-Origin": "*" # Essencial para navegadores (CORS)
+        },
+        "body": json.dumps(dados_resposta)
+    }</code></pre>
+
+    <div class="callout-dica">
+        <strong>Atenção em caso de erros no modelo Proxy:</strong> Se a sua lógica de negócio falhar ou o usuário não tiver permissão, o seu código precisa definir manualmente o <code>"statusCode": 403</code> ou <code>404</code>. Se o Lambda lançar uma exceção não tratada (crash de execução), o API Gateway devolverá automaticamente um <code>HTTP 502 Bad Gateway</code> para o cliente.
+    </div>
+
+    <h3>2. Integração Non-Proxy ou Customizada (O Caminho Transformador)</h3>
+    <p>No modelo <strong>Non-Proxy (ou Custom Integration)</strong>, o API Gateway assume o controle dos protocolos e metadados HTTP, desacoplando o código da função Lambda dos detalhes de rede:</p>
+    <ul>
+        <li><strong>Como funciona:</strong> A função Lambda atua estritamente como um processador de regras de negócio. Ela recebe apenas os dados limpos e devolve um dado puro (ex: <code>{"mensagem": "Café pronto!"}</code>). O API Gateway se encarrega de capturar esse retorno cru, envelopá-lo automaticamente dentro de um pacote HTTP com <code>statusCode: 200</code>, injetar os cabeçalhos corretos e despachar para o cliente.</li>
+        <li>
+            <strong>Tratamento e Mapeamento de Erros:</strong> Como o Lambda devolve apenas o resultado bruto da execução, se ocorrer um erro de validação ou lógica dentro da função mas o script terminar sem crashar a runtime, o API Gateway considerará a execução um sucesso e devolverá um falso <code>HTTP 200 OK</code>!
+            <br><br>
+            Para evitar isso, é <strong>obrigatório configurar expressões regulares de mapeamento de erro na Integration Response do API Gateway</strong>, instruindo o serviço a inspecionar mensagens de erro e converter a resposta no código HTTP correto (<code>400</code>, <code>404</code> ou <code>500</code>).
+        </li>
+    </ul>
+
+    <h3>O Poder da Transformação de Payloads (VTL - Apache Velocity Template Language)</h3>
+    <p>A maior vantagem do modelo Non-Proxy é a capacidade de interceptar e reescrever dados "em voo" usando <strong>Modelos de Mapeamento (Mapping Templates)</strong> escritos em <strong>VTL (Apache Velocity Template Language)</strong>:</p>
+
+    <div class="image-container">
+        <img src="img/vtl_transformation_payload.png" loading="lazy" alt="Transformação de Payloads JSON com VTL no API Gateway (Before vs. After)">
+    </div>
+
+    <ul>
+        <li><strong>Na Ida (Integration Request):</strong> O API Gateway pode interceptar a requisição enviada pelo front-end, remodelar o payload e repassar para o Lambda apenas os campos no formato esperado. Como demonstrado no slide acima, se o front-end envia <code>firstname</code> e <code>lastname</code> separados, o VTL do API Gateway pode concatená-los dinamicamente em um único campo <code>name</code>, aninhar propriedades de endereço (<code>address: { city, state }</code>) e transformar valores antes de entregar para o backend.</li>
+        <li><strong>Na Volta (Integration Response):</strong> O VTL pode filtrar campos confidenciais, reestruturar listas e padronizar o JSON final entregue ao cliente sem exigir que nenhuma linha de código seja alterada ou reimplantada no Lambda.</li>
+    </ul>
+
+    <span class="anchor-h2" id="mod6-integrating-api-gateway-part4"></span>
+    <h2>9. Part 4: Integrating with API Gateway</h2>
+
+    <p>Esta etapa final de integrações explora <strong>padrões arquiteturais avançados no Amazon API Gateway</strong>, essenciais para engenheiros de nuvem e arquitetos que desenham soluções corporativas de alta escala, migrações legadas e segurança de rede.</p>
+
+    <h3>1. Integrações de Primeira Classe (First-Class Integrations)</h3>
+    <p>Em muitas arquiteturas de microsserviços, desenvolvedores criavam uma função Lambda simples apenas para receber um payload HTTP e enfileirá-lo no Amazon SQS ou acionar uma máquina de estados. Isso gerava custos de execução extras e aumentava a latência (o chamado <em>"Lambda tax"</em>).</p>
+
+    <div class="image-container">
+        <img src="img/first_class_integrations_sqs_stepfunctions.png" loading="lazy" alt="Integrações de Primeira Classe no API Gateway: SQS-SendMessage e StepFunctions-StartExecution">
+    </div>
+
+    <p>Com as <strong>integrações de primeira classe nas HTTP APIs</strong>, o próprio API Gateway realiza essa chamada de forma nativa e direta para outros serviços da AWS, sem necessidade de nenhum código intermediário:</p>
+    <ul>
+        <li><strong>Como funciona:</strong> Se você deseja que a API envie uma mensagem diretamente para uma fila do <strong>Amazon SQS</strong> (<code>SQS-SendMessage</code>) ou inicie a execução de um fluxo no <strong>AWS Step Functions</strong> (<code>StepFunctions-StartExecution</code>), você mapeia o corpo da requisição HTTP (<code>.body</code>) diretamente nos parâmetros que o serviço de destino exige.</li>
+        <li><strong>Vantagens arquiteturais:</strong> Menor custo financeiro, latência mínima e menos código de infraestrutura e aplicação para manter.</li>
+    </ul>
+
+    <h3>2. Integrações de Proxy HTTP (O Padrão de Migração Strangler Fig)</h3>
+    <p>Um dos cenários mais cobrados em arquitetura corporativa e exames de certificação de nível avançado é a migração controlada e sem indisponibilidade de sistemas legados monolíticos para microsserviços modernos na nuvem.</p>
+
+    <div class="image-container">
+        <img src="img/http_proxy_migration_strangler.png" loading="lazy" alt="HTTP proxy integrations: padrão de migração gradual de monólito para microsserviços com API Gateway">
+    </div>
+
+    <p>O processo de migração divide-se em 3 etapas progressivas (baseado no consagrado padrão arquitetural <em>Strangler Fig</em>):</p>
+    <ol>
+        <li><strong>Etapa 1 (Cenário Inicial):</strong> O cliente/website consome diretamente uma aplicação monolítica legada hospedada em instâncias <strong>Amazon EC2</strong> (ex: rotas <code>[GET] /products</code> e <code>[GET] /services</code>).</li>
+        <li><strong>Etapa 2 (Inserção do Proxy):</strong> O API Gateway é posicionado na frente de toda a arquitetura. Inicialmente, o Gateway apenas repassa todas as rotas (<code>HTTP Proxy Integration</code>) direto para o servidor EC2 existente. Para o usuário final e para o front-end, o endpoint se unifica sem quebrar nenhuma funcionalidade.</li>
+        <li><strong>Etapa 3 (Desmontagem Gradual do Monólito):</strong> Conforme a equipe refatora módulos específicos para o modelo serverless, você atualiza apenas a rota refatorada no API Gateway (ex: <code>[GET] /services</code> agora aponta para uma função AWS Lambda moderna), enquanto as rotas restantes (<code>[GET] /products</code>) continuam sendo encaminhadas para a EC2. O monólito é estrangulado e migrado de forma 100% invisível para os clientes.</li>
+    </ol>
+
+    <h3>3. Integrações Privadas (Private Integrations &amp; VPC Link)</h3>
+    <p>Por padrão de segurança, bancos de dados, containers e servidores implantados em sub-redes privadas dentro de uma <strong>Amazon VPC</strong> não possuem endereços IP públicos e não podem ser alcançados diretamente a partir da internet pública.</p>
+
+    <div class="image-container">
+        <img src="img/private_integrations_vpc_link.png" loading="lazy" alt="Private integrations no API Gateway utilizando VPC Link e Network Load Balancer">
+    </div>
+
+    <p>A solução corporativa da AWS é o <strong>VPC Link</strong>:</p>
+    <ul>
+        <li><strong>O que é o VPC Link:</strong> É um canal de comunicação de rede seguro e de alta largura de banda que conecta o API Gateway diretamente a recursos internos da sua VPC.</li>
+        <li><strong>Como opera:</strong> O tráfego recebido pelo API Gateway é autenticado (via permissões IAM, Amazon Cognito Authorizer ou Lambda Authorizer) e encaminhado através do VPC Link para um balanceador de carga interno (<strong>Network Load Balancer - NLB</strong> ou <strong>Application Load Balancer - ALB</strong>) ou via <strong>AWS Cloud Map</strong>.</li>
+        <li><strong>Destinos suportados:</strong> O balanceador interno pode distribuir requisições para instâncias <strong>Amazon EC2</strong>, tarefas de containers no <strong>AWS Fargate / Amazon ECS</strong>, pods em clusters <strong>Amazon EKS</strong> ou até servidores no data center corporativo (<em>on-premises</em>) conectados via <strong>AWS Direct Connect</strong> ou VPN Site-to-Site.</li>
+    </ul>
+
+    <h3>4. Transformando Requisições e Respostas (Parameter Mapping em HTTP APIs)</h3>
+    <p>Enquanto as APIs REST utilizam a complexa linguagem de template VTL para transformar mensagens, as <strong>HTTP APIs</strong> (leves, modernas e mais econômicas) contam com uma funcionalidade nativa e declarativa chamada <strong>Mapeamento de Parâmetros (Parameter Mapping)</strong>:</p>
+
+    <div class="image-container">
+        <img src="img/transforming_requests_responses_parameter_mapping.png" loading="lazy" alt="Transforming requests and responses via Parameter Mapping no Amazon API Gateway">
+    </div>
+
+    <p>O Parameter Mapping permite interceptar e manipular dados nos dois sentidos do fluxo:</p>
+    <ul>
+        <li><strong>Ações Disponíveis:</strong>
+            <ul>
+                <li><code>append</code>: Adiciona valores a cabeçalhos ou parâmetros existentes.</li>
+                <li><code>overwrite</code>: Sobrescreve completamente o valor de um cabeçalho, query string ou caminho.</li>
+                <li><code>remove</code>: Remove cabeçalhos ou query strings sensíveis antes de entregar a requisição ou resposta.</li>
+            </ul>
+        </li>
+        <li><strong>Alvos de Manipulação:</strong> Cabeçalhos HTTP (headers), parâmetros de URL (query strings) e reescrita de caminhos da URL (path rewriting).</li>
+    </ul>
+
+    <p>Exemplo de configuração via AWS CLI (adicionando o identificador da requisição <code>.requestId</code> em um cabeçalho personalizado):</p>
+    <pre><code>aws apigatewayv2 create-integration     --api-id abcdef123     --integration-type HTTP_PROXY     --payload-format-version 1.0     --integration-uri 'https://api.example.com'     --integration-method ANY     --request-parameters '{"append:header.header3": ".requestId"}'</code></pre>
+
+    <div class="callout-dica">
+        <strong>Atenção à Restrição de Cabeçalhos Reservados (Reserved Headers):</strong>
+        <br>
+        O API Gateway concede ampla liberdade para modificar cabeçalhos customizados, mas <strong>bloqueia estritamente a alteração de Cabeçalhos Reservados</strong> (como <code>Host</code>, <code>Connection</code>, <code>Content-Length</code>, entre outros cabeçalhos fundamentais de rede) para garantir a integridade dos protocolos de transporte e a segurança da infraestrutura de nuvem da AWS.
+    </div>
+
+    <span class="anchor-h2" id="mod6-deploying-api"></span>
+    <h2>10. Deploying an API</h2>
+
+    <p>Depois de configurar todas as rotas, métodos e integrações de backend, a sua API ainda não está disponível na internet. Para que o mundo exterior (ou o front-end da aplicação) consiga chamá-la, você precisa realizar a <strong>Implantação (Deploy)</strong>.</p>
+
+    <p>Para publicar qualquer API no Amazon API Gateway, você é <strong>obrigatoriamente exigido a associá-la a um Estágio (Stage)</strong>.</p>
+
+    <h3>1. O que são Estágios (Stages)?</h3>
+    <p>Um <strong>Estágio</strong> é essencialmente um <em>snapshot</em> (retrato congelado) da configuração da sua API em um determinado momento no tempo:</p>
+    <ul>
+        <li><strong>A URL Gerada:</strong> O nome atribuído ao estágio passa a fazer parte integrante do endereço final do endpoint (ex: <code>https://{api-id}.execute-api.{region}.amazonaws.com/dev/products</code> versus <code>https://{api-id}.execute-api.{region}.amazonaws.com/prod/products</code>).</li>
+        <li><strong>Separação de Ambientes:</strong> O uso mais clássico e recomendado dos estágios é isolar os ambientes de ciclo de vida de desenvolvimento:
+            <ul>
+                <li>Ambiente <code>dev</code>: Versão instável para testes rápidos e desenvolvimento ativo dos programadores.</li>
+                <li>Ambiente <code>prod</code> (Produção): Versão estável, auditada e com alta disponibilidade que atende os clientes e usuários finais reais.</li>
+            </ul>
+        </li>
+    </ul>
+
+    <div class="callout-dica">
+        <strong>Diferença de Deploy (HTTP API vs. REST API):</strong> As <strong>HTTP APIs</strong> criam automaticamente um estágio padrão denominado <code>$default</code> com o recurso de <em>auto-deploy</em> ativado (qualquer alteração de rota entra em vigor imediatamente). Já as <strong>REST APIs clássicas</strong> exigem a criação manual do estágio e o acionamento explícito da ação de Deploy a cada atualização.
+    </div>
+
+    <h3>2. Variáveis de Estágio (Stage Variables)</h3>
+    <p>Se você possui um estágio de desenvolvimento (<code>dev</code>) e outro de produção (<code>prod</code>), eles obviamente não deveriam gravar no mesmo banco de dados DynamoDB nem acionar a mesma versão da função Lambda.</p>
+    <p>As <strong>Stage Variables</strong> resolvem isso de maneira elegante: são pares de chave-valor configurados no nível do estágio que atuam como variáveis de ambiente no roteamento do API Gateway:</p>
+    <ul>
+        <li>Permitem apontar a mesma estrutura de rotas da API para backends distintos dependendo do estágio ativo (ex: definindo o ARN da função Lambda dinamicamente com <code>${stageVariables.lambdaAlias}</code>).</li>
+        <li>Evitam duplicar código, recriar rotas ou gerenciar definições de API separadas para cada ambiente.</li>
+    </ul>
+
+    <h3>3. Implantação Canário (Canary Deployments)</h3>
+    <p>O <strong>Canary Deployment</strong> é uma estratégia avançada de alta disponibilidade para testar atualizações e novas versões da API em produção com risco mínimo:</p>
+    <ul>
+        <li><strong>O Problema:</strong> Se você atualizar o código da API para 100% dos usuários simultaneamente e houver um bug crítico não detectado, todo o sistema entrará em indisponibilidade.</li>
+        <li><strong>A Solução Canário:</strong> O API Gateway permite instanciar uma versão secundária (<em>Canary</em>) convivendo dentro do mesmo estágio de produção. Você configura uma pequena fatia do tráfego real (por exemplo, <strong>10%</strong>) para ser direcionada para a versão nova, enquanto <strong>90%</strong> do tráfego permanece seguro na versão antiga e comprovada.</li>
+        <li><strong>O Ciclo de Promoção:</strong> A equipe monitora métricas do CloudWatch (erros 4xx/5xx e latência). Não havendo anomalias, aumenta-se a fatia progressivamente (30%, 50%) até a promoção a 100%, momento em que o canário se torna a nova versão estável definitiva e a versão anterior é aposentada.</li>
+    </ul>
+
+    <span class="anchor-h2" id="mod6-controlling-access-part1"></span>
+    <h2>11. Part 1: Controlling access to a REST API</h2>
+
+    <p>Chegamos ao pilar crítico de qualquer arquitetura corporativa: <strong>Segurança e Controle de Acesso</strong>. Não basta colocar a API no ar; é mandatório garantir que apenas pessoas, sistemas e clientes autorizados consigam chamá-la, protegendo seus dados e prevenindo custos operacionais com acessos indevidos.</p>
+
+    <p>O Amazon API Gateway possui múltiplas camadas para blindar a API contra tráfego malicioso ou não autorizado. Esta primeira parte foca em bloqueios de rede, identidade de sistemas e firewalls de aplicação:</p>
+
+    <ul>
+        <li>
+            <strong>Políticas de Recurso do IAM (IAM Resource Policies):</strong>
+            <p>Permitem anexar regras de permissão/bloqueio diretamente no endpoint da API. Com elas, você pode, por exemplo, restringir a chamada da API exclusivamente a uma conta AWS parceira, a uma VPC específica ou liberar o acesso ao estágio de <code>dev</code> unicamente para o endereço de IP estático da sua empresa ou laboratório.</p>
+            <div class="callout-dica">
+                <strong>Atenção para exames de certificação:</strong> Políticas de Recurso do IAM em nível de API são suportadas nativamente apenas em <strong>REST APIs</strong> (não disponíveis em HTTP APIs).
+            </div>
+        </li>
+        <li>
+            <strong>Domínios Personalizados (Custom Domain Names):</strong>
+            <p>Permitem substituir aquela URL padronizada e longa gerada automaticamente pela AWS por um endereço profissional e amigável da sua própria marca (ex: <code>https://api.cafeteria-sofia.com</code>).</p>
+            <p>Para garantir comunicação segura via HTTPS, o API Gateway integra-se nativamente ao <strong>AWS Certificate Manager (ACM)</strong> para emissão, validação e renovação automática de certificados SSL/TLS.</p>
+        </li>
+        <li>
+            <strong>Certificados de Cliente e Mutual TLS (Client Certificates / mTLS):</strong>
+            <p>Estabelecem uma camada bidirecional de autenticação criptográfica. Quando a API encaminha requisições para um backend dedicado (como uma instância Amazon EC2), como o EC2 sabe que a requisição partiu legitimamente do seu API Gateway e não de um invasor direto na internet?</p>
+            <p>O API Gateway pode gerar um certificado digital X.509 (com validade de 365 dias) que o seu servidor de backend utiliza para validar a autenticidade da chamada antes de processá-la. Esse mecanismo é amplamente utilizado em instituições bancárias, sistemas financeiros e ecossistemas de <strong>Internet das Coisas (IoT)</strong>.</p>
+        </li>
+        <li>
+            <strong>AWS WAF (Web Application Firewall):</strong>
+            <p>O escudo de proteção contra ameaças de camada de aplicação (Camada 7). O WAF protege a API contra ataques comuns da web, como injeção de SQL (<strong>SQL Injection</strong>) e scripts entre sites (<strong>Cross-Site Scripting - XSS</strong>).</p>
+            <p>Além disso, permite criar regras customizadas de inspeção e mitigação:</p>
+            <ul>
+                <li>Bloqueio por intervalos de endereços IP específicos (IP Set Rules).</li>
+                <li>Bloqueio geográfico baseado em países ou continentes inteiros (<em>Geo-blocking</em>).</li>
+                <li>Bloqueio por assinaturas de <em>User-Agents</em> maliciosos, <em>scrapers</em> ou robôs de varredura.</li>
+            </ul>
+        </li>
+    </ul>
+
+    <span class="anchor-h2" id="mod6-controlling-access-part2"></span>
+    <h2>12. Part 2: Controlling access to a REST API</h2>
+
+    <p>O grande pesadelo de muitos desenvolvedores web ao conectar front-ends modernos a backends na nuvem! Esta seção aborda um bloqueio clássico que a Sofía certamente enfrentaria ao tentar conectar a página estática do site da cafeteria hospedada no Amazon S3 com a API no API Gateway.</p>
+
+    <h3>O Problema: O que é CORS?</h3>
+    <p><strong>CORS (<em>Cross-Origin Resource Sharing</em> / Compartilhamento de Recursos de Origem Cruzada)</strong> <strong>NÃO é um bloqueio gerado pela AWS</strong>, mas sim um recurso mandatório de segurança implementado pelos próprios <strong>navegadores web</strong> (Google Chrome, Firefox, Safari, Edge).</p>
+
+    <p>Se o seu site está hospedado em <code>www.abc.com</code> e faz uma requisição assíncrona (via <code>fetch()</code> ou AJAX) para a mesma origem exata (<code>www.abc.com/products</code>), o navegador libera a comunicação normalmente (<em>Same domain</em>).</p>
+
+    <p>Porém, se o site tentar chamar uma origem distinta, o navegador bloqueia a leitura dos dados recebidos para proteger o usuário final contra roubo de credenciais ou injeção de dados maliciosos.</p>
+
+    <p>Uma requisição é considerada de <strong>Origem Cruzada (Cross-Origin)</strong> se houver qualquer discrepância em:</p>
+    <ul>
+        <li><strong>Domínio:</strong> De <code>site.com</code> para <code>api.com</code>.</li>
+        <li><strong>Subdomínio:</strong> De <code>www.abc.com</code> para <code>api.abc.com</code> ou <code>abc.abc.com</code>.</li>
+        <li><strong>Porta:</strong> De <code>site.com:80</code> para <code>site.com:8080</code>.</li>
+        <li><strong>Protocolo:</strong> De <code>http://site.com</code> para <code>https://site.com</code>.</li>
+    </ul>
+
+    <div class="image-container">
+        <img src="img/cors_same_domain_vs_cross_domain.png" loading="lazy" alt="Same domain vs. Cross-domain: comportamento de bloqueio de navegadores com CORS">
+    </div>
+
+    <h3>A Solução: A Requisição "Preflight" (OPTIONS)</h3>
+    <p>Para autorizar o tráfego legítimo de um front-end hospedado em outro domínio ou subdomínio, o navegador executa uma verificação prévia e transparente chamada <strong>Preflight Request</strong>:</p>
+    <ul>
+        <li>Antes de disparar a requisição real de escrita ou leitura avançada (como um <code>POST</code> com payload JSON), o navegador envia uma chamada preliminar e leve utilizando o <strong>método HTTP OPTIONS</strong>.</li>
+        <li>Essa chamada pergunta à API: <em>"O domínio <code>site.com</code> tem autorização para utilizar este método e estes cabeçalhos HTTP?"</em></li>
+        <li>Se a API responder com os cabeçalhos apropriados (<code>Access-Control-Allow-Origin</code>, <code>Access-Control-Allow-Methods</code>, <code>Access-Control-Allow-Headers</code>), o navegador libera o envio da requisição real.</li>
+    </ul>
+
+    <h3>O Papel do API Gateway com Mock Endpoints</h3>
+    <p>Se você não utilizasse o Amazon API Gateway, teria que poluir o código das suas funções Lambda com rotas e handlers redundantes apenas para responder às perguntas <code>OPTIONS</code> do navegador, gerando custos desnecessários de computação a cada interação do usuário.</p>
+    <p>O API Gateway resolve isso de forma elegante:</p>
+    <ul>
+        <li>Você clica na opção <strong>"Enable CORS"</strong> diretamente no console da AWS para a rota desejada.</li>
+        <li>Em REST APIs, o API Gateway cria automaticamente uma rota <code>OPTIONS</code> associada a uma integração do tipo <strong>Mock Endpoint</strong>. O Mock intercepta a pergunta do navegador e devolve imediatamente os cabeçalhos <code>Access-Control-*</code> com status <code>200 OK</code>, <strong>sem sequer acionar ou cobrar tempo de execução da sua função Lambda</strong>.</li>
+    </ul>
+
+    <span class="anchor-h2" id="mod6-controlling-access-part3"></span>
+    <h2>13. Part 3: Controlling access to a REST API</h2>
+
+    <p>Para consolidar a segurança e governança de APIs, precisamos de mecanismos robustos para evitar que a infraestrutura seja sobrecarregada por tempestades de requisições — sejam ataques maliciosos de negação de serviço (DoS) ou clientes legítimos com código defeituoso em loops infinitos.</p>
+
+    <h3>O que é Throttling (Estrangulamento de Taxa)?</h3>
+    <p><strong>Throttling</strong> é o mecanismo que limita o volume e a velocidade das requisições aceitas pela API. Quando um chamador ultrapassa o teto definido, o API Gateway interrompe o fluxo imediatamente e devolve o código de status HTTP padronizado <strong><code>HTTP 429 Too Many Requests</code></strong>.</p>
+
+    <h3>Camadas de Throttling no API Gateway</h3>
+    <ul>
+        <li>
+            <strong>1. Limites Gerais da Conta (Account-level):</strong>
+            <p>Por padrão de segurança operacional, a AWS impõe um limite de proteção para a conta inteira de <strong>10.000 requisições por segundo (RPS) por região</strong>, com suporte a rajadas (<em>burst</em>) de até <strong>5.000 requisições</strong> (baseado no algoritmo <em>Token Bucket</em>).</p>
+        </li>
+        <li>
+            <strong>2. Limites em Nível de Estágio e Rota/Método (Stage &amp; Method-level):</strong>
+            <p>Permite proteger componentes sensíveis de backend. Por exemplo: o estágio <code>prod</code> inteiro pode suportar até 1.000 req/s, mas uma rota de relatórios analíticos pesados (<code>GET /reports</code>) pode ser estrangulada para no máximo 50 req/s para preservar o pool de conexões do banco de dados.</p>
+        </li>
+        <li>
+            <strong>3. Planos de Uso e Chaves de API (Usage Plans &amp; API Keys):</strong>
+            <p>Ferramentas projetadas para comercialização de APIs, modelos SaaS e distribuição para parceiros de negócio:</p>
+            <ul>
+                <li><strong>Chaves de API (API Keys):</strong> Strings alfanuméricas exclusivas fornecidas aos clientes para identificar e autenticar a origem do chamador via cabeçalho <code>x-api-key</code>.</li>
+                <li><strong>Planos de Uso (Usage Plans):</strong> Atrelam as chaves de API a regras de consumo:
+                    <ul>
+                        <li><strong>Taxa (Rate):</strong> Limite de requisições por segundo (com valor de rajada/burst).</li>
+                        <li><strong>Cota (Quota):</strong> Teto máximo acumulado em um período (ex: Plano Básico limitado a 1.000 requisições por mês; Plano Pro com 100.000 requisições por mês).</li>
+                    </ul>
+                </li>
+            </ul>
+        </li>
+    </ul>
+
+    <h3>A Hierarquia de Avaliação de Bloqueio (Pegadinha Clássica de Provas!)</h3>
+    <p>Quando múltiplos limites concorrentes estão ativos (no cliente, no estágio e na conta), o API Gateway avalia as regras <strong>sempre da mais específica/restritiva para a mais geral</strong>, nesta ordem estrita:</p>
+    <ol>
+        <li><strong>Limite de um Método específico para um Cliente específico</strong> (configurado no Plano de Uso).</li>
+        <li><strong>Limite geral do Plano de Uso</strong> vinculado à chave daquele cliente.</li>
+        <li><strong>Limite de um Método/Rota específica</strong> configurado diretamente no Estágio.</li>
+        <li><strong>Limite geral do Estágio</strong> (Stage-level).</li>
+        <li><strong>Limite máximo da Conta AWS</strong> na região (as 10.000 RPS).</li>
+    </ol>
+
+    <span class="anchor-h2" id="mod6-controlling-access-part4"></span>
+    <h2>14. Part 4: Controlling access to a REST API</h2>
+
+    <p>Mesmo com firewalls perimetrais (AWS WAF), políticas de rede e limites de taxa (throttling) devidamente configurados, você ainda precisa controlar a <strong>identidade do usuário</strong> e o que ele tem <strong>permissão para executar</strong> (Autenticação vs. Autorização).</p>
+
+    <div class="image-container">
+        <img src="img/auth_and_authz_options.png" loading="lazy" alt="Controlling authentication and authorization to REST APIs no Amazon API Gateway">
+    </div>
+
+    <p>O Amazon API Gateway disponibiliza <strong>quatro modelos principais</strong> para validar e autorizar requisições de entrada:</p>
+
+    <ul>
+        <li>
+            <strong>1. Nenhum (Open / None):</strong>
+            <p>A API permanece totalmente pública na internet, sem exigir nenhum tipo de login, cabeçalho de assinatura ou credencial de acesso. Indicada para catálogos públicos de produtos, termos de serviço ou endpoints de health check.</p>
+        </li>
+        <li>
+            <strong>2. Permissões do IAM (IAM Permissions &amp; AWS SigV4):</strong>
+            <p>Utiliza o sistema nativo de identidade e credenciais da própria AWS.</p>
+            <ul>
+                <li><strong>Como funciona:</strong> A requisição HTTP precisa ser assinada criptograficamente utilizando credenciais válidas da AWS (Access Key ID e Secret Access Key) através do protocolo <strong>Signature Version 4 (SigV4)</strong>.</li>
+                <li>Se a assinatura estiver ausente, expirada ou o usuário/role IAM não tiver permissão explícita com a ação <code>execute-api:Invoke</code>, o API Gateway barra a requisição de imediato com <code>HTTP 403 Forbidden</code>.</li>
+                <li><strong>Caso de uso ideal:</strong> Comunicação interna entre servidores, instâncias Amazon EC2, containers no ECS/EKS, funções Lambda ou microsserviços backend que rodam dentro do ecossistema AWS (onde os AWS SDKs assinam as chamadas de forma automatizada e transparente).</li>
+            </ul>
+        </li>
+        <li>
+            <strong>3. Autorizadores JWT (JSON Web Tokens &amp; Amazon Cognito):</strong>
+            <p>É o <strong>padrão ouro do mercado</strong> para autenticar usuários finais em aplicativos móveis (iOS e Android) e aplicações web modernas (Single Page Applications - SPAs em React, Vue, Angular), baseando-se nos protocolos abertos OAuth 2.0 e OpenID Connect (OIDC).</p>
+            <ul>
+                <li><strong>O Casamento Perfeito com o Amazon Cognito:</strong> Em REST APIs, o API Gateway integra-se nativamente com os <strong>Amazon Cognito User Pools</strong>.</li>
+                <li><strong>O Fluxo:</strong> O usuário faz login no aplicativo através do Cognito, recebe um token JWT assinado (ID Token ou Access Token) e o envia no cabeçalho padronizado <code>Authorization: Bearer &lt;token&gt;</code> a cada requisição.</li>
+                <li>O API Gateway intercepta a chamada na borda, decodifica o token, valida a assinatura criptográfica com o Cognito e verifica se os escopos OAuth (<em>scopes</em>) do usuário concedem permissão de acesso àquela rota específica antes de acionar o backend.</li>
+            </ul>
+        </li>
+        <li>
+            <strong>4. Autorizadores Lambda (Lambda Authorizers / Custom Authorizers):</strong>
+            <p>E se a sua empresa tiver um sistema de login legado proprietário, servidores LDAP / Active Directory corporativos, tokens SAML corporativos ou exigir verificações avançadas de segurança em um banco de dados externo?</p>
+            <ul>
+                <li><strong>Como funciona:</strong> Você cria uma função AWS Lambda dedicada cujo único objetivo é executar a sua lógica personalizada de segurança. Antes de a requisição chegar ao backend real, o API Gateway desvia a chamada para o Lambda Authorizer.</li>
+                <li>O código da função avalia os cabeçalhos, checa os bancos de dados e devolve para o API Gateway uma <strong>Política IAM gerada dinamicamente</strong> (contendo <code>Effect: "Allow"</code> ou <code>"Deny"</code>) associada a um <code>PrincipalId</code> (ou um payload simples <code>{"isAuthorized": true/false}</code> nas HTTP APIs).</li>
+                <li><strong>Vantagem Adicional (Contexto Enriquecido):</strong> Permite que o autorizador injete dados contextuais customizados (como ID de usuário interno, perfil de permissões, tenant da empresa) no objeto da requisição, repassando esse contexto enriquecido diretamente para o backend.</li>
+            </ul>
+        </li>
+    </ul>
+
+    <span class="anchor-h2" id="mod6-monitoring-api"></span>
+    <h2>15. Monitoring a REST API</h2>
+
+    <p>Para garantir que a sua API esteja operando com alta disponibilidade e identificar gargalos e falhas de forma proativa, o Amazon API Gateway integra-se nativamente com todo o ecossistema de observabilidade da AWS.</p>
+
+    <h3>O Coração do Monitoramento: Amazon CloudWatch</h3>
+    <p>O <strong>Amazon CloudWatch</strong> coleta e processa métricas quase em tempo real, retendo o histórico operacional por até <strong>15 meses</strong>. Por padrão, o API Gateway envia quatro métricas cruciais a cada minuto (sem custos adicionais de telemetria):</p>
+
+    <ul>
+        <li><strong>Count (Contagem):</strong> O volume total de chamadas recebidas pela API em um determinado período.</li>
+        <li><strong>Latency (Latência Total de Ponta a Ponta):</strong> O tempo exato transcorrido desde o momento em que o API Gateway recebeu a requisição do cliente até o instante em que devolveu a resposta final.</li>
+        <li><strong>IntegrationLatency (Latência de Integração):</strong> Mede especificamente o tempo que o seu backend (função Lambda, serviço HTTP ou DynamoDB) demorou para responder ao API Gateway.
+            <div class="callout-dica">
+                <strong>Dica de Ouro para Diagnóstico:</strong> Se a métrica <code>Latency</code> estiver alta e a <code>IntegrationLatency</code> também estiver alta, a lentidão está acontecendo dentro do código do seu backend ou em consultas lentas de banco de dados. Se a <code>IntegrationLatency</code> for baixa mas a <code>Latency</code> geral for alta, o gargalo está nas transformações de VTL do API Gateway, no handshake SSL/TLS ou em autorizadores pesados.
+            </div>
+        </li>
+        <li><strong>Erros HTTP 4XX e 5XX:</strong>
+            <ul>
+                <li><code>4XXError</code>: Quantidade de chamadas rejeitadas por falha do cliente (401 Não Autorizado, 403 Proibido, 404 Não Encontrado, 429 Too Many Requests por throttling).</li>
+                <li><code>5XXError</code>: Quantidade de requisições que falharam por indisponibilidade ou falha interna do backend/servidor (502 Bad Gateway por crash de Lambda, 504 Gateway Timeout).</li>
+            </ul>
+        </li>
+    </ul>
+
+    <p><strong>Logs de Acesso Detalhados (CloudWatch Access Logs):</strong> Enquanto as métricas numéricas acima são automáticas, o registro detalhado de quem acessou cada recurso (Logs de Acesso no CloudWatch Logs) é opcional. Para ativá-lo, você cria um <strong>Log Group</strong> no CloudWatch e o associa a um Estágio da sua API, podendo customizar as variáveis registradas (IP de origem, request ID, método, tempo e user-agent).</p>
+
+    <h3>O Trio Avançado de Auditoria, Rastreamento e Conformidade</h3>
+    <p>Em ambientes corporativos e questões de exames de certificação AWS, é fundamental diferenciar com clareza o propósito de cada uma destas três ferramentas adicionais:</p>
+
+    <div class="image-container">
+        <img src="img/xray_config_cloudtrail_trio.png" loading="lazy" alt="O Trio de Observabilidade da AWS: AWS X-Ray, AWS Config e AWS CloudTrail">
+    </div>
+
+    <ul>
+        <li>
+            <strong>1. AWS X-Ray (O Rastreador de Gargalos):</strong>
+            <p>Responde à pergunta: <em>"Onde exatamente está o problema na minha arquitetura?"</em></p>
+            <p>Executa o rastreamento distribuído de ponta a ponta (<em>Distributed Tracing</em>). Se a requisição passa pelo API Gateway, aciona uma função Lambda e efetua uma busca no DynamoDB, o X-Ray gera um mapa visual de serviços (<em>Service Map</em>) detalhando quantos milissegundos foram gastos em cada nó e microsserviço individual. Indispensável para diagnosticar problemas de latência e <em>cold starts</em>.</p>
+        </li>
+        <li>
+            <strong>2. AWS CloudTrail (O Histórico de Auditoria / Caixa-Preta):</strong>
+            <p>Responde às perguntas: <em>"Quem fez isso? Quando fez? O que modificou?"</em></p>
+            <p>Grava toda e qualquer chamada de API de gerenciamento (operações de <em>Control Plane</em>) executada dentro da sua conta AWS. Se um administrador alterar as configurações do API Gateway, deletar uma rota ou modificar permissões de segurança, o CloudTrail registra a identidade do usuário IAM, data/hora e IP de origem.</p>
+        </li>
+        <li>
+            <strong>3. AWS Config (O Avaliador de Conformidade e Governança):</strong>
+            <p>Responde à pergunta: <em>"Essa modificação segue as regras de governança e conformidade da empresa?"</em></p>
+            <p>Registra o histórico contínuo de configuração dos recursos da AWS e avalia se eles estão em conformidade com as políticas corporativas (<em>compliance</em>). Se alguém configurar um endpoint do API Gateway como público sem vincular o AWS WAF (quando as regras internas exigem proteção obrigatória), o AWS Config marca o recurso como não-conforme e pode disparar remediações automáticas.</p>
+        </li>
+    </ul>
+
+    <span class="anchor-h2" id="mod6-optimizing-api"></span>
+    <h2>16. Optimizing API Gateway</h2>
+
+    <p>Chegamos à reta final do Módulo 6! Depois de criar, integrar, implantar e proteger a sua API, o passo que coroa uma arquitetura em nuvem resiliente e profissional é a <strong>Otimização de Desempenho e Custos</strong>.</p>
+
+    <p>Detalhes sobre custos fixos vs. variáveis e armadilhas de performance são temas favoritos em bancas de concursos públicos e exames de certificação de TI (como o <em>AWS Certified Developer - Associate</em>). Para melhorar o tempo de resposta (latência) e diminuir a carga sobre o seu backend, o Amazon API Gateway disponibiliza <strong>duas estratégias principais de otimização</strong>:</p>
+
+    <div class="image-container">
+        <img src="img/api_gateway_caching.png" loading="lazy" alt="Caching no Amazon API Gateway: Cache Hit vs Cache Miss e métricas no CloudWatch">
+    </div>
+
+    <h3>1. Cache (Armazenamento em Memória)</h3>
+    <p>Disponível para <strong>REST APIs clássicas</strong>, o cache permite que o API Gateway "decore" a resposta de requisições de leitura frequentes (especialmente métodos <code>GET</code>):</p>
+
+    <ul>
+        <li><strong>Como Funciona o Ciclo de Vida:</strong>
+            <ul>
+                <li>Quando um cliente requisita um recurso (ex: a lista de produtos da cafeteria), o API Gateway primeiro consulta o cache em memória.</li>
+                <li>Se a resposta já estiver armazenada (<strong>Cache Hit</strong>), o Gateway devolve os dados imediatamente sem repassar a chamada para a função Lambda ou banco de dados.</li>
+                <li>Se a resposta ainda não estiver em memória (<strong>Cache Miss</strong>), ele aciona a função Lambda normalmente, entrega a resposta ao cliente e salva uma cópia no cache vinculada àquela chave de busca.</li>
+            </ul>
+        </li>
+        <li><strong>Chaves de Cache (Cache Keys):</strong> Você pode personalizar as chaves que diferenciam uma resposta de outra, incluindo parâmetros de caminho (<em>path parameters</em>), cabeçalhos específicos (<em>headers</em>) ou parâmetros de busca (<em>query strings</em>).</li>
+        <li><strong>Tempo de Vida (TTL - Time to Live):</strong> Você define o tempo de validade dos dados no cache (padrão de 300 segundos / 5 minutos, configurável entre 0 e 3.600 segundos). Também é possível habilitar criptografia em repouso para os dados cacheados.</li>
+        <li><strong>Métricas de Monitoramento no CloudWatch:</strong>
+            <ul>
+                <li><code>CacheHitCount</code>: Quantidade de vezes em que o cache atendeu a requisição, poupando o backend.</li>
+                <li><code>CacheMissCount</code>: Quantidade de vezes em que a requisição precisou ir até o backend por ausência no cache.</li>
+            </ul>
+        </li>
+    </ul>
+
+    <div class="callout-dica">
+        <strong>A Pegadinha de Custo (Atenção em Provas e Projetos Reais!):</strong>
+        <br>
+        Diferente do core do API Gateway (que é puramente serverless e cobra apenas por requisições recebidas), <strong>o Cache é cobrado por HORA de provisionamento contínuo do nó de memória</strong> (com tamanhos variando de 0,5 GB até 237 GB), independentemente de estar recebendo tráfego ou não!
+        <br><br>
+        É essencial avaliar se a redução nos custos de invocação do Lambda e a queda de latência compensam o custo fixo horário da infraestrutura de cache provisionada.
+    </div>
+
+    <h3>2. Compressão de Payload (Payload Compression)</h3>
+    <p>Se a sua API precisa devolver arquivos JSON extensos para o front-end, trafegar pacotes gigantescos pela internet consome tempo de rede e eleva custos de transferência de dados (<em>Data Transfer Out</em>). A solução nativa é habilitar a compressão de payloads (com algoritmos padronizados como <code>gzip</code> ou <code>deflate</code>):</p>
+
+    <ul>
+        <li><strong>Como Funciona:</strong> O cliente envia o cabeçalho <code>Accept-Encoding: gzip</code> indicando que seu navegador aceita dados compactados. O API Gateway compacta o corpo da resposta em trânsito antes do despacho, diminuindo expressivamente o tamanho transferido.</li>
+        <li><strong>Configuração de Limite (<code>minimumCompressionSize</code>):</strong> Você define o tamanho mínimo (em bytes, configurável de 0 até 10.485.760 bytes / 10 MB) a partir do qual o API Gateway deve disparar a compressão.</li>
+    </ul>
+
+    <div class="callout-dica">
+        <strong>O Risco da Supercompressão (Overhead de Processamento):</strong>
+        <br>
+        Se você configurar o <code>minimumCompressionSize</code> para <code>0</code> (forçando a compressão de absolutamente todas as respostas), você pode <strong>degradar a performance global</strong> da API em vez de melhorá-la!
+        <br><br>
+        Comprimir payloads microscópicos (ex: respostas de 50 ou 100 bytes) consome processamento inútil de CPU do servidor para empacotar e do navegador do cliente para descompactar. Além disso, devido ao overhead dos cabeçalhos do formato gzip, <strong>o arquivo compactado pode acabar ficando maior do que o JSON original!</strong> A melhor prática é estipular um piso mínimo prudente (por exemplo, a partir de 1 KB / 1024 bytes) validado por testes de carga.
+    </div>
+
+    <span class="anchor-h2" id="mod6-lab"></span>
+    <div class="lab-section">
+        <h2>Lab 6.1: Developing REST APIs with Amazon API Gateway</h2>
+
+        <h3>Visão geral e objetivos do laboratório</h3>
+        <p>Neste laboratório prático, você criará uma <strong>interface de programação de aplicações (API) REST</strong> totalmente gerenciada utilizando o <strong>Amazon API Gateway</strong>. O objetivo central é implementar a camada de API para o site da cafeteria, estabelecendo os contratos de rotas e métodos necessários para que o front-end consuma dados dinamicamente.</p>
+        <p>Ao longo da atividade, você criará <strong>Mock Endpoints</strong> (endpoints de dados simulados) que respondem com dados estáticos codificados e habilitará o <strong>Compartilhamento de Recursos de Origem Cruzada (CORS)</strong> para permitir que as requisições AJAX disparadas do navegador do cliente sejam aceitas sem bloqueios de segurança.</p>
+        <p>Depois de concluir este laboratório, você será capaz de:</p>
+        <ul>
+            <li>Criar e configurar endpoints simulados (Mock Endpoints) para APIs REST utilizando o <strong>AWS SDK para Python (Boto3)</strong>.</li>
+            <li>Configurar modelos de resposta e templates de mapeamento para retornar dados em formato JSON compatíveis com o esquema do DynamoDB.</li>
+            <li>Habilitar o <strong>Cross-Origin Resource Sharing (CORS)</strong> nos métodos e recursos da API Gateway.</li>
+            <li>Fazer o deploy de uma API REST criando um estágio (<em>Stage</em>) de produção (<code>prod</code>).</li>
+            <li>Atualizar as configurações de front-end do site hospedado no <strong>Amazon S3</strong> para consumir a URL base da API implantada.</li>
+            <li>Inspecionar e validar requisições e respostas HTTP via Console de Desenvolvedor do navegador.</li>
+        </ul>
+
+        <h3>Duração</h3>
+        <p>A duração estimada deste laboratório é de aproximadamente <strong>60 minutos</strong>.</p>
+
+        <h3>Restrições de serviço AWS</h3>
+        <p>Neste ambiente de laboratório, o acesso aos serviços e às ações de serviços da AWS é restrito ao necessário para concluir as instruções. É possível encontrar erros caso você tente acessar outros serviços ou executar ações além das descritas neste laboratório.</p>
+
+        <h3>Cenário</h3>
+        <p>No laboratório anterior (Módulo 5), você assumiu o papel da desenvolvedora <strong>Sofía</strong> para modernizar o aplicativo web da cafeteria. Como parte desse processo, você criou uma tabela do <strong>Amazon DynamoDB</strong> chamada <code>FoodProducts</code>, na qual armazenou informações sobre os itens do cardápio.</p>
+        <p>A estrutura de dados da tabela no DynamoDB segue o padrão NoSQL com atributos tipados:</p>
+        <pre><code>{
+  "product_name": { "S": "fatia de torta de maçã" },
+  "description": { "S": "Uma deliciosa fatia da torta caseira de Frank." },
+  "price_in_cents": { "N": "595" },
+  "product_id": { "S": "a444" },
+  "tags": { "L": [ { "S": "pie slice" }, { "S": "on offer" } ] },
+  "special": { "N": "1" }
+}</code></pre>
+
+        <p>No laboratório anterior, você também configurou scripts com o <strong>AWS SDK para Python (Boto3)</strong> para:</p>
+        <ul>
+            <li>Efetuar varreduras (<code>scan</code>) na tabela para recuperar todos os detalhes de produtos.</li>
+            <li>Recuperar itens individuais por chave primária usando <code>get_item</code>.</li>
+            <li>Criar um Índice Secundário Global (GSI) chamado <code>special_GSI</code> para filtrar rapidamente produtos em oferta e em estoque.</li>
+        </ul>
+
+        <p>Neste laboratório, você continuará auxiliando a Sofía a construir a arquitetura da cafeteria. Você usará o Amazon API Gateway para configurar <strong>três endpoints de dados simulados (Mock Endpoints)</strong>:</p>
+        <ol>
+            <li><code>[GET] /products</code>: Endpoint que no próximo laboratório invocará uma varredura (scan) na tabela <code>FoodProducts</code> do DynamoDB para listar todos os itens.</li>
+            <li><code>[GET] /products/on_offer</code>: Endpoint que invocará uma consulta no índice <code>special_GSI</code> com filtro de produtos em oferta.</li>
+            <li><code>[POST] /create_report</code>: Endpoint corporativo que posteriormente acionará um processo assíncrono em lote para gerar e despachar relatórios gerenciais da cafeteria.</li>
+        </ol>
+
+        <div class="callout-dica">
+            <strong>Por que usar Mock Endpoints nesta fase?</strong> Criar endpoints simulados reduz o escopo de erros durante o desenvolvimento inicial. Você isola e valida a camada de roteamento, o contrato de interface (JSON), os cabeçalhos HTTP e o CORS no front-end, garantindo que o site funcione perfeitamente antes mesmo de integrar as funções Lambda e as permissões de banco de dados.
+        </div>
+
+        <h3>Tarefa 1: Preparação do ambiente de desenvolvimento</h3>
+        <p>Nesta primeira tarefa, você configurará o ambiente no <strong>VS Code IDE (code-server)</strong> na instância EC2 do laboratório para poder criar a API REST programaticamente via SDK.</p>
+        <ol>
+            <li>Acesse o VS Code IDE através da URL (<code>LabIDEURL</code>) e senha (<code>LabIDEPassword</code>) fornecidas no painel de detalhes do laboratório.</li>
+            <li>No terminal Bash do VS Code, baixe e extraia o pacote de arquivos do laboratório:
+                <pre><code>wget https://aws-tc-largeobjects.s3.us-west-2.amazonaws.com/CUR-TF-200-ACCDEV-2-91558/04-lab-api/code.zip -P /home/ec2-user/environment
+unzip code.zip</code></pre>
+            </li>
+            <li>Execute o script de provisionamento inicial, que instala a biblioteca <code>boto3</code> e publica o site estático da cafeteria em um bucket S3 da sua conta AWS:
+                <pre><code>chmod +x resources/setup.sh && resources/setup.sh</code></pre>
+                <p>Quando solicitado pelo terminal, insira o seu endereço IPv4 público (obtido via <a href="http://www.whatismyip.com/" target="_blank">whatismyip.com</a>) para que o script configure a política de acesso do bucket S3 restrita à sua conexão.</p>
+            </li>
+            <li>Verifique a instalação das ferramentas:
+                <pre><code>aws --version
+pip3 show boto3</code></pre>
+            </li>
+            <li>Abra o Console do <strong>Amazon S3</strong>, localize o bucket do site da cafeteria, selecione o arquivo <code>index.html</code> e copie sua URL pública (<code>https://&lt;bucket-name&gt;.s3.amazonaws.com/index.html</code>).</li>
+            <li>Abra o site em uma nova aba do navegador. Observe a seção <em>Browse Pastries</em>:
+                <ul>
+                    <li>O botão <strong>"on offer"</strong> está selecionado por padrão e exibe 6 itens (lidos do arquivo local <code>all_products_on_offer.json</code>).</li>
+                    <li>Ao clicar em <strong>"view all"</strong>, múltiplos produtos são exibidos (lidos de <code>all_products.json</code>).</li>
+                </ul>
+            </li>
+            <li>Abra as Ferramentas do Desenvolvedor do navegador (F12 &rarr; Console). Você verá uma mensagem registrada pelo script <code>main.js</code> informando que a aplicação está utilizando arquivos estáticos locais codificados. Deixe esta aba aberta.</li>
+        </ol>
+
+        <h3>Tarefa 2: Criação do primeiro endpoint da API (GET /products)</h3>
+        <p>Nesta tarefa, você criará a API REST <code>ProductsApi</code> e o primeiro recurso raiz <code>/products</code> utilizando o SDK Boto3 em Python:</p>
+        <ol>
+            <li>No painel de arquivos do VS Code, abra <code>python_3/create_products_api.py</code>.</li>
+            <li>Na linha 3, inicialize o cliente do serviço API Gateway:
+                <pre><code>apigateway = boto3.client('apigateway')</code></pre>
+            </li>
+            <li>Analise o que o script realiza em cada bloco:
+                <ul>
+                    <li><strong>Linhas 5 a 24:</strong> Criação da API REST chamada <code>ProductsApi</code> e do recurso <code>products</code> sob a raiz <code>/</code> da API.</li>
+                    <li><strong>Linhas 28 a 33:</strong> Criação do método de requisição HTTP <code>GET</code> no recurso <code>products</code> (com <code>authorizationType='NONE'</code>).</li>
+                    <li><strong>Linhas 50 a 58:</strong> Configuração da <strong>Integration Request</strong> do tipo <code>MOCK</code> (sem backend real).</li>
+                    <li><strong>Linhas 35 a 48:</strong> Configuração da <strong>Method Response</strong> definindo os cabeçalhos de resposta HTTP, incluindo <code>Access-Control-Allow-Origin: '*'</code> para CORS.</li>
+                    <li><strong>Linhas 61 a 92:</strong> Configuração da <strong>Integration Response</strong> injetando os dados JSON simulados (com os campos <code>product_name_str</code>, <code>product_id_str</code>, <code>price_in_cents_int</code>, <code>description_str</code>, <code>tag_str_arr</code> e <code>special_int</code>) no <code>responseTemplates</code> para o content-type <code>application/json</code>.</li>
+                </ul>
+            </li>
+            <li>Execute o script no terminal:
+                <pre><code>cd python_3
+python3 create_products_api.py</code></pre>
+            </li>
+            <li>No Console da AWS, acesse o <strong>Amazon API Gateway</strong>, clique na <code>ProductsApi</code> recém-criada e selecione o método <code>GET</code> sob <code>/products</code>.</li>
+            <li>Observe o fluxo gráfico de 4 etapas:
+                <pre><code>Client &rarr; Method Request (GET) &rarr; Integration Request (MOCK) &rarr; Integration Response (JSON Mock) &rarr; Method Response (200 OK + CORS) &rarr; Client</code></pre>
+            </li>
+            <li>Clique na aba <strong>Test</strong> (no painel inferior), role até o fim e clique no botão <strong>Test</strong>. O console exibirá o código <code>HTTP 200</code> com os 3 produtos de teste formatados em JSON:
+                <pre><code>[
+  {
+    "product_name_str": "apple pie slice",
+    "product_id_str": "a444",
+    "price_in_cents_int": 595,
+    "description_str": "amazing taste",
+    "tag_str_arr": ["pie slice", "on offer"],
+    "special_int": 1
+  },
+  {
+    "product_name_str": "chocolate cake slice",
+    "product_id_str": "a445",
+    "price_in_cents_int": 595,
+    "description_str": "chocolate heaven",
+    "tag_str_arr": ["cake slice", "on offer"]
+  },
+  {
+    "product_name_str": "chocolate cake",
+    "product_id_str": "a446",
+    "price_in_cents_int": 4095,
+    "description_str": "chocolate heaven",
+    "tag_str_arr": ["whole cake", "on offer"]
+  }
+]</code></pre>
+            </li>
+        </ol>
+
+        <h3>Tarefa 3: Criação do segundo endpoint da API (GET /products/on_offer)</h3>
+        <p>Nesta tarefa, você criará um recurso filho aninhado chamado <code>on_offer</code> sob <code>/products</code> para retornar exclusivamente itens em oferta:</p>
+        <ol>
+            <li>No VS Code, abra o arquivo <code>python_3/create_on_offer_api.py</code>.</li>
+            <li>Substitua os marcadores <code>&lt;FMI_1&gt;</code> e <code>&lt;FMI_2&gt;</code> com os identificadores da API:
+                <ul>
+                    <li><code>api_id</code>: O identificador alfanumérico da <code>ProductsApi</code> (visível no console do API Gateway ou no topo da tela).</li>
+                    <li><code>parent_id</code>: O ID do recurso pai <code>/products</code> (obtido inspecionando o recurso no console ou via CLI).</li>
+                </ul>
+            </li>
+            <li>Observe que este script configura o método <code>GET</code> retornando apenas um único produto em oferta no payload simulado:
+                <pre><code>[
+  {
+    "product_name_str": "apple pie slice",
+    "product_id_str": "a444",
+    "price_in_cents_int": 595,
+    "description_str": "amazing taste",
+    "tag_str_arr": ["pie slice", "on offer"],
+    "special_int": 1
+  }
+]</code></pre>
+            </li>
+            <li>Execute o script no terminal:
+                <pre><code>python3 create_on_offer_api.py</code></pre>
+            </li>
+            <li>Atualize a página do API Gateway no console. Observe a árvore de recursos com a estrutura aninhada:
+                <pre><code>/
+  /products
+    GET
+    /on_offer
+      GET</code></pre>
+            </li>
+            <li>Clique em <code>/products/on_offer &rarr; GET &rarr; Test</code>. Você receberá o status <code>HTTP 200 OK</code> com o item <code>apple pie slice</code>.</li>
+        </ol>
+
+        <h3>Tarefa 4: Criação do terceiro endpoint da API (POST /create_report)</h3>
+        <p>Nesta tarefa, você adicionará um recurso no nível raiz da API para solicitar relatórios de estoque da cafeteria:</p>
+        <ol>
+            <li>No VS Code, abra <code>python_3/create_report_api.py</code>.</li>
+            <li>Na linha 5, substitua <code>&lt;FMI_1&gt;</code> pelo <code>api_id</code>. Você pode consultar o ID rapidamente pela AWS CLI:
+                <pre><code>aws apigateway get-rest-apis --query "items[0].id" --output text</code></pre>
+            </li>
+            <li>Analise as diferenças estruturais em relação aos endpoints anteriores:
+                <ul>
+                    <li>O método HTTP configurado é <strong><code>POST</code></strong> (em vez de <code>GET</code>).</li>
+                    <li>O caminho criado é <code>/create_report</code> diretamente na raiz <code>/</code> (mesmo nível de <code>/products</code>).</li>
+                    <li>Retorna uma resposta simulada confirmando a solicitação de relatório:
+                        <pre><code>{
+  "msg_str": "report requested, check your phone shortly"
+}</code></pre>
+                    </li>
+                </ul>
+            </li>
+            <li>Execute o script no terminal:
+                <pre><code>python3 create_report_api.py</code></pre>
+            </li>
+            <li>No Console do API Gateway, atualize a lista de recursos, selecione <code>/create_report &rarr; POST &rarr; Test</code> e execute o teste para validar o retorno <code>HTTP 200 OK</code>.</li>
+        </ol>
+
+        <h3>Tarefa 5: Implantação da API (Deploy para o estágio 'prod')</h3>
+        <p>Até o momento, os recursos e métodos existem apenas como definições no console e não possuem uma URL pública na internet. Para publicá-los:</p>
+        <ol>
+            <li>No console do API Gateway, na árvore de recursos da <code>ProductsApi</code>, selecione a barra raiz <code>/</code>.</li>
+            <li>Clique no botão <strong>Deploy API (Implantar API)</strong>.</li>
+            <li>No modal de configuração, preencha:
+                <ul>
+                    <li><strong>Deployment stage (Estágio de implantação):</strong> <em>*Novo estágio*</em> (New Stage).</li>
+                    <li><strong>Stage name (Nome do estágio):</strong> <code>prod</code>.</li>
+                </ul>
+            </li>
+            <li>Clique em <strong>Deploy (Implantar)</strong>. (Caso surja um aviso sobre permissões de WAF Regional, ignore-o e feche-o).</li>
+            <li>No topo da página do estágio <code>prod</code>, localize e copie a <strong>Invoke URL (URL de invocação)</strong> gerada pela AWS:
+                <pre><code>https://&lt;api-id&gt;.execute-api.us-east-1.amazonaws.com/prod</code></pre>
+            </li>
+        </ol>
+
+        <h3>Tarefa 6: Atualização do site para consumir as APIs REST no Amazon S3</h3>
+        <p>Nesta etapa final, você conectará o front-end web hospedado no S3 aos endpoints que acabou de implantar:</p>
+        <ol>
+            <li>No VS Code, abra o arquivo <code>resources/website/config.js</code>.</li>
+            <li>Na linha 2, cole a URL de invocação da sua API no parâmetro <code>API_GW_BASE_URL_STR</code> (certifique-se de que não haja barra no final após <code>/prod</code>):
+                <pre><code>window.COFFEE_CONFIG = {
+    API_GW_BASE_URL_STR: "https://&lt;api-id&gt;.execute-api.us-east-1.amazonaws.com/prod",
+    COGNITO_LOGIN_BASE_URL_STR: null
+};</code></pre>
+            </li>
+            <li>Abra o arquivo <code>python_3/update_config.py</code> e substitua <code>&lt;FMI_1&gt;</code> pelo nome do seu bucket S3 (obtido via <code>aws s3 ls</code>).</li>
+            <li>Execute o script para enviar o <code>config.js</code> atualizado para o Amazon S3:
+                <pre><code>python3 update_config.py</code></pre>
+            </li>
+            <li>Retorne à aba do navegador onde o site da cafeteria está aberto e recarregue a página (F5 ou Ctrl+Shift+R).</li>
+            <li>Valide os novos comportamentos integrados à API:
+                <ul>
+                    <li>Na seção <em>Browse Pastries</em>, com <strong>"on offer"</strong> selecionado: agora é exibido apenas <strong>1 produto</strong> (<code>apple pie slice</code>), confirmando que a requisição AJAX buscou os dados em <code>https://.../prod/products/on_offer</code>!</li>
+                    <li>Ao clicar em <strong>"view all"</strong>: a página agora exibe exatamente os <strong>3 produtos</strong> simulados retornados pelo endpoint <code>https://.../prod/products</code>.</li>
+                    <li>No Console do Desenvolvedor (F12): o log do script <code>main.js</code> confirma que a aplicação deixou de usar dados codificados locais e agora consome ativamente o Amazon API Gateway.</li>
+                    <li>Ao clicar no botão <strong>login</strong> no cabeçalho do site: a mensagem <em>"No API to call"</em> é exibida, pois o mecanismo de autenticação será construído com Amazon Cognito em módulos futuros.</li>
+                </ul>
+            </li>
+        </ol>
+
+        <h3>Atualização da cafeteria (Os 3 Marcos Arquiteturais da Sofía)</h3>
+        <p>Com a conclusão deste laboratório, a desenvolvedora Sofía alcançou o segundo grande marco do plano de modernização da cafeteria:</p>
+        <ul>
+            <li><strong>Marco 1 (Módulo 5 - Concluído):</strong> Provisionamento do banco de dados NoSQL gerenciado no <strong>Amazon DynamoDB</strong> (tabela <code>FoodProducts</code> com o índice <code>special_GSI</code>).</li>
+            <li><strong>Marco 2 (Módulo 6 - Concluído neste Lab):</strong> Criação e deploy da <strong>API REST no Amazon API Gateway</strong> com endpoints simulados (Mock Endpoints) e suporte nativo a CORS, desacoplando o desenvolvimento do front-end.</li>
+            <li><strong>Marco 3 (Módulo 7 - Próximo Passo):</strong> Substituição dos endpoints Mock por funções do <strong>AWS Lambda</strong>, permitindo que as chamadas da API REST consultem e gravem dados diretamente na tabela real do DynamoDB. Posteriormente, inclusão de autenticação via Amazon Cognito para a emissão de relatórios corporativos.</li>
+        </ul>
+    </div>
+</section>

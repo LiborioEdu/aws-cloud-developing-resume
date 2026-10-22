@@ -1,0 +1,1401 @@
+<span class="anchor" id="modulo-8"></span>
+<section data-module-id="modulo-8">
+    <h1>8. Introducing Containers and Container Services</h1>
+
+    <span class="anchor-h2" id="mod8-intro"></span>
+    <h2>1. Introduction</h2>
+
+    <h4>Enquanto no módulo anterior exploramos como o <strong>AWS Lambda</strong> abstrai integralmente a infraestrutura para executar funções rápidas sob demanda (Serverless FaaS), neste módulo veremos como os <strong>Contêineres</strong> resolvem um desafio corporativo crucial: empacotar uma aplicação completa junto com todas as suas bibliotecas, configurações, binários e runtimes, garantindo que ela execute de forma idêntica e sem atritos em qualquer ambiente computacional.</h4>
+
+    <h3>Objetivos de Aprendizado</h3>
+    <p>Ao longo deste módulo, você dominará:</p>
+    <ul>
+        <li><strong>A evolução da infraestrutura de TI:</strong> Compreender a trajetória tecnológica diferenciando as três grandes eras da computação: Servidores Físicos (<em>Bare-metal</em>), Máquinas Virtuais (VMs com hypervisors) e Contêineres baseados em virtualização de sistema operacional.</li>
+        <li><strong>Fundamentos e Vocabulário de Contêineres:</strong> Entender a arquitetura de isolamento a nível de kernel (Linux <em>namespaces</em> e <em>control groups - cgroups</em>), a história e os padrões de mercado.</li>
+        <li><strong>Ecossistema Docker:</strong> Ilustrar os componentes centrais do Docker (<em>Dockerfile</em>, <em>Image</em>, <em>Registry</em> e <em>Container</em>) e compreender a dinâmica de compilação em camadas imutáveis com reaproveitamento de cache.</li>
+        <li><strong>Arquitetura de Microsserviços:</strong> Identificar os benefícios de modularidade, escalabilidade granular e ciclo de vida independente em comparação com sistemas monolíticos legados.</li>
+        <li><strong>Orquestração de Contêineres na AWS:</strong> Reconhecer os desafios de gerenciar centenas de contêineres em produção e mapear as soluções nativas da AWS: <strong>Amazon Elastic Container Service (Amazon ECS)</strong>, <strong>Amazon Elastic Kubernetes Service (Amazon EKS)</strong>, a computação serverless do <strong>AWS Fargate</strong> e o registro privado <strong>Amazon Elastic Container Registry (Amazon ECR)</strong>.</li>
+        <li><strong>AWS Elastic Beanstalk:</strong> Compreender como utilizar essa plataforma como serviço (PaaS) totalmente gerenciada para simplificar a implantação, balanceamento de carga e escalabilidade automática de aplicações web conteinerizadas.</li>
+    </ul>
+
+    <h3>O Caso da Cafeteria: Um Novo Desafio de Negócios</h3>
+    <p>A cafeteria de Frank e Martha continua em rápida expansão! Após o lançamento bem-sucedido do site dinâmico integrado ao Amazon DynamoDB e ao AWS Lambda, os proprietários acabaram de concretizar uma importante aquisição comercial: <strong>compraram uma empresa fornecedora de grãos de café</strong> (<em>coffee bean supplier</em>).</p>
+    <p>A nova missão da desenvolvedora <strong>Sofía</strong> é integrar o sistema de rastreamento de estoque e cadeia de suprimentos dessa empresa adquirida à infraestrutura em nuvem existente da cafeteria.</p>
+    <p><em>A Decisão Arquitetural:</em> O sistema do fornecedor já é uma aplicação web funcional e consolidada, desenvolvida em uma pilha de software tradicional. Reescrever todo esse sistema do zero para transformá-lo em funções efêmeras do Lambda seria um processo demorado, caro e arriscado. A melhor prática de modernização de aplicações recomendada pela AWS neste cenário é a <strong>estratégia de conteinerização (Lift-and-Shift para Containers)</strong>: empacotar a aplicação existente em contêineres Docker, preservando seu código e dependências, e executá-la de forma elástica na nuvem.</p>
+
+    <div class="callout-dica">
+        <strong>Fluxo Arquitetural Deste Módulo:</strong><br>
+        Nos laboratórios práticos do Módulo 8, construiremos a infraestrutura da cadeia de suprimentos da cafeteria através de três etapas:<br>
+        1. <strong>Empacotamento:</strong> Criação de imagens Docker para a aplicação web do fornecedor de café.<br>
+        2. <strong>Camada Web Elástica:</strong> Implantação e gerenciamento dos contêineres utilizando o <strong>AWS Elastic Beanstalk</strong>.<br>
+        3. <strong>Camada de Dados Relacional:</strong> Conexão da aplicação web com o banco de dados relacional <strong>Amazon Aurora Serverless</strong> (compatível com MySQL/PostgreSQL e com escalabilidade automática sob demanda).
+    </div>
+
+    <span class="anchor-h2" id="mod8-introducing-containers"></span>
+    <h2>2. Introducing containers</h2>
+
+    <h4>Para compreender o conceito de contêineres na computação moderna, a AWS utiliza a célebre analogia histórica dos <strong>contêineres de transporte marítimo</strong>. Essa revolução logística transformou o comércio global no século XX exatamente da mesma forma como os contêineres de software transformaram a indústria de tecnologia da informação.</h4>
+
+    <h3>A Analogia Definitiva: O Navio de Carga e o Contêiner Intermodal</h3>
+    <p>Antes da década de 1950, o transporte de mercadorias entre continentes era um processo caótico, lento e ineficiente. A carga consistia em uma mistura heterogênea de caixas de madeira, sacas de grãos, engradados de vidro e barris de ferro de todos os formatos e tamanhos imagináveis. Cada navio exigia estivadores especializados para carregar e arrumar manualmente os itens nos porões como se fosse um quebra-cabeça tridimensional. O carregamento demorava dias ou semanas, mercadorias eram roubadas ou quebravam, e transferir a carga do navio para trens ou caminhões exigia desempacotar e recarregar tudo do zero.</p>
+    <p>Tudo mudou quando foi inventado o <strong>contêiner de aço padronizado (Intermodal Container)</strong>. Uma caixa metálica retangular simples com dimensões universais (20 ou 40 pés) e travas padronizadas em todos os cantos. De repente, o navio, o guindaste portuário, o vagão de trem e a carroceria do caminhão <strong>não precisavam mais saber o que havia dentro da caixa</strong>. Pouco importava se o contêiner carregava sacas de café, televisores, roupas ou peças mecânicas pesadas; bastava acoplar o guindaste nas travas universais e movimentar o contêiner de aço.</p>
+    <p><em>O Paralelo na Computação:</em> Durante décadas, implantar software foi igualmente caótico. Desenvolvedores entregavam código que dependia de versões específicas de compiladores, variáveis de ambiente, bibliotecas do sistema e patches do sistema operacional. O que rodava no laptop do desenvolvedor quebrava no servidor de testes e falhava catastroficamente em produção. <strong>O contêiner de software é a caixa de aço padronizada da computação</strong>: você coloca seu código e todas as suas dependências lá dentro, e os servidores na nuvem apenas transportam e executam a caixa sem se preocupar com os detalhes internos!</p>
+
+    <h3>O que é um Contêiner de Software?</h3>
+    <ul>
+        <li><strong>A "Caixa" Padronizada:</strong> Uma unidade padrão de software que empacota o código-fonte da aplicação junto com seu runtime (ex: Node.js, Python, Java), todas as dependências externas, bibliotecas binárias compartilhadas e arquivos de configuração essenciais.</li>
+        <li><strong>Portabilidade Extrema:</strong> Uma vez construído, o contêiner garante comportamento 100% reproduzível e idêntico em qualquer ambiente: seja no laptop de desenvolvimento (macOS ou Windows), em servidores de homologação ou em clusters de instâncias EC2 na nuvem da AWS. O clássico dilema <em>"Na minha máquina funciona, por que não funciona em produção?"</em> deixa de existir.</li>
+        <li><strong>Virtualização a Nível de Sistema Operacional:</strong> Diferente da virtualização tradicional de hardware (baseada em hypervisors), múltiplos contêineres em execução operam de forma isolada entre si, mas <strong>compartilham o mesmo núcleo (Kernel) do Sistema Operacional da máquina hospedeira</strong>.</li>
+    </ul>
+
+    <h3>A Evolução da Infraestrutura: Por que os Contêineres Venceram?</h3>
+    <p>A história da computação corporativa evoluiu através de três grandes paradigmas de infraestrutura:</p>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Característica</th>
+                <th>1. Servidores Físicos (Bare-metal)</th>
+                <th>2. Máquinas Virtuais (VMs)</th>
+                <th>3. Contêineres (A Solução Moderna)</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>Nível de Virtualização</strong></td>
+                <td>Nenhuma virtualização. SO instalado diretamente no hardware físico.</td>
+                <td>Virtualização de <strong>Hardware</strong> via Hypervisor (Type 1 ou Type 2).</td>
+                <td>Virtualização de <strong>Sistema Operacional</strong> no espaço de usuário (<em>User Space</em>).</td>
+            </tr>
+            <tr>
+                <td><strong>Isolamento</strong></td>
+                <td>Nulo entre aplicações no mesmo servidor.</td>
+                <td>Forte isolamento em nível de hardware virtualizado.</td>
+                <td>Isolamento lógico robusto via Linux <em>Namespaces</em> e <em>cgroups</em>.</td>
+            </tr>
+            <tr>
+                <td><strong>Tamanho do Artefato</strong></td>
+                <td>Código + SO instalado no disco inteiro (dezenas de GBs).</td>
+                <td>Imagens pesadas de SO completo (geralmente de 2 GB a 20 GB).</td>
+                <td>Imagens compactas e enxutas (dezenas a poucas centenas de MB).</td>
+            </tr>
+            <tr>
+                <td><strong>Tempo de Inicialização</strong></td>
+                <td>Minutos (boot físico de BIOS, POST e SO).</td>
+                <td>Minutos (boot completo do sistema operacional convidado).</td>
+                <td><strong>Frações de segundo</strong> (milissegundos; apenas um processo no kernel).</td>
+            </tr>
+            <tr>
+                <td><strong>Eficiência de Recursos</strong></td>
+                <td>Baixa (recursos ociosos dedicados a uma única máquina).</td>
+                <td>Média (overhead de memória e CPU para rodar múltiplos kernels).</td>
+                <td><strong>Altíssima densidade</strong> (centenas de contêineres sobre um único kernel).</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <ol>
+        <li><strong>Servidores Físicos (Bare-Metal):</strong>
+            <p>No início, o sistema operacional era instalado diretamente na placa-mãe de servidores dedicados. Várias aplicações eram instaladas lado a lado. Isso gerava o famoso <em>"Inferno de Dependências" (Dependency Hell)</em>: se a Aplicação A exigia a versão 1.0 de uma biblioteca e a Aplicação B exigia a versão 2.0 da mesma biblioteca, ocorria um conflito insolúvel. Além disso, os servidores precisavam ser superdimensionados para picos de tráfego, resultando em gigantesco desperdício de energia e capacidade durante períodos ociosos.</p>
+        </li>
+        <li><strong>Máquinas Virtuais (VMs - Era da Virtualização de Hardware):</strong>
+            <p>Para resolver o conflito de dependências, surgiu a tecnologia de Máquinas Virtuais (gerenciadas por um <em>Hypervisor</em>, como o KVM utilizado pelas instâncias Amazon EC2). Cada aplicação passou a rodar em seu próprio "servidor virtual" independente com seu próprio hardware emulado. Porém, as VMs são computacionalmente <strong>pesadas</strong>: cada VM obriga a instalação de um Sistema Operacional completo (Windows ou Linux), consumindo gigabytes de memória RAM e disco rígido apenas para manter o kernel e os daemons do SO rodando. Adicionalmente, aplicar patches de segurança e atualizar SOs convidados em dezenas de VMs multiplica o trabalho operacional.</p>
+        </li>
+        <li><strong>Contêineres (A Era Moderna de Virtualização de SO):</strong>
+            <p>Em vez de emular hardware e instalar dezenas de SOs convidados, os contêineres compartilham o mesmo kernel do SO hospedeiro. Cada contêiner recebe apenas seus binários e bibliotecas de aplicação empacotados. Graças ao compartilhamento do kernel, um contêiner inicializa quase instantaneamente (iniciando apenas o processo da aplicação, sem passar por rotinas de boot do SO) e consome apenas a memória estritamente necessária para rodar o código de negócio, permitindo densidade e escalabilidade incomparáveis!</p>
+        </li>
+    </ol>
+
+    <span class="anchor-h2" id="mod8-introducing-docker"></span>
+    <h2>3. Introducing Docker containers</h2>
+
+    <h4>Embora as tecnologias de isolamento do Linux (como <em>chroot</em>, <em>cgroups</em> e <em>namespaces</em>) já existissem há anos, os contêineres só se tornaram o padrão absoluto da indústria de tecnologia a partir de 2013, graças ao surgimento do <strong>Docker</strong>. O Docker criou uma plataforma simples, intuitiva e padronizada que transformou a criação, empacotamento, distribuição e execução de contêineres em uma experiência acessível a qualquer desenvolvedor.</h4>
+
+    <h3>Por que o Docker se Tornou o Padrão da Indústria?</h3>
+    <ul>
+        <li><strong>A "Caixa" Totalmente Imutável:</strong> A aplicação, suas dependências, o runtime e os arquivos de configuração são compilados em um único artefato binário imutável chamado <strong>Imagem (Container Image)</strong>.</li>
+        <li><strong>Portabilidade Universal:</strong> Uma vez construída a imagem Docker, ela pode ser executada sem qualquer modificação em desktops de desenvolvimento, instâncias Amazon EC2, clusters do Amazon ECS/EKS ou qualquer provedor de computação que suporte o padrão OCI (Open Container Initiative).</li>
+        <li><strong>Isolamento Versátil e Convivência Pacífica:</strong> É perfeitamente viável executar simultaneamente no mesmo servidor uma aplicação legada rodando Python 2.7 e uma nova aplicação rodando Python 3.12, cada uma em seu próprio contêiner isolado, sem qualquer interferência de dependências de sistema ou conflitos de portas.</li>
+    </ul>
+
+    <h3>O Dicionário Essencial do Docker: Os 4 Pilares Centrais</h3>
+    <p>Para operar com contêineres com confiança em ambientes de produção e exames da AWS, você precisa dominar com precisão os quatro conceitos basilares:</p>
+    <ol>
+        <li><strong>Dockerfile (A "Receita de Bolo"):</strong>
+            <p>É um arquivo de texto simples (obrigatoriamente nomeado como <code>Dockerfile</code>, sem qualquer extensão de arquivo) contendo a sequência exata de instruções declarativas para construir a imagem do seu aplicativo. Cada comando no Dockerfile define uma ação (baixar uma imagem base, instalar pacotes, expor portas de rede, copiar arquivos e definir comandos de inicialização).</p>
+        </li>
+        <li><strong>Container Image (A Imagem - O "Molde" Imutável):</strong>
+            <p>É o resultado compilado da execução do Dockerfile (através do comando <code>docker build</code>). Uma imagem Docker é um modelo <strong>estritamente somente-leitura (read-only) e imutável</strong>. Uma vez gerada a imagem, seu conteúdo jamais é alterado; se você modificar uma única linha de código, uma nova imagem com uma nova tag ou hash é gerada.</p>
+        </li>
+        <li><strong>Container Registry (O "Repositório / GitHub" das Imagens):</strong>
+            <p>É o serviço de catálogo e armazenamento onde as imagens Docker são publicadas para distribuição e versionamento. Permite baixar imagens públicas oficiais da comunidade (como imagens de Linux Alpine, Nginx, Python ou MySQL disponíveis no <strong>Docker Hub</strong>) ou armazenar imagens corporativas proprietárias em repositórios privados altamente seguros, como o <strong>Amazon Elastic Container Registry (Amazon ECR)</strong>.</p>
+        </li>
+        <li><strong>Container (A Instância Viva em Execução):</strong>
+            <p>É a imagem "ganhando vida". Quando você executa o comando <code>docker run</code>, o Docker Engine instancia o molde somente-leitura da imagem e adiciona uma fina <strong>camada de leitura e escrita (Read/Write Layer)</strong> no topo da pilha. A aplicação executa seus processos e grava dados temporários nessa camada superior.</p>
+            <div class="callout-dica">
+                <strong>Regra de Ouro Arquitetural para Contêineres:</strong><br>
+                A camada de leitura/escrita do contêiner é <strong>completamente efêmera</strong>! Se o contêiner falhar, travar ou for encerrado pelo orquestrador, todos os dados gravados nessa camada de escrita são permanentemente apagados. Por essa razão, <strong>contêineres nunca devem armazenar dados persistentes localmente</strong>: utilize bancos de dados gerenciados (Amazon DynamoDB, Amazon Aurora / RDS) ou monte sistemas de arquivos compartilhados duráveis (como volumes do <strong>Amazon EFS</strong> ou <strong>Amazon EBS</strong>).
+            </div>
+        </li>
+    </ol>
+
+    <h3>A Magia das Camadas (Layers) no Dockerfile</h3>
+    <p>O segredo arquitetural que torna as imagens Docker tão leves, rápidas para compilar e eficientes para baixar pela rede está no modelo de <strong>camadas sobrepostas (Layered Union Filesystem)</strong>. Cada instrução declarada no Dockerfile cria uma camada somente-leitura independente sobreposta à anterior.</p>
+
+    <div class="image-container">
+        <img src="img/dockerfile_layers.png" loading="lazy" alt="Cada linha do Dockerfile adiciona uma camada (Image layers read-only) com base CentOS 7, Apache e shell script">
+        <div class="image-caption">Estrutura oficial de camadas de uma imagem Docker: cada linha do Dockerfile cria uma camada somente-leitura empilhada sequencialmente a partir da imagem base.</div>
+    </div>
+
+    <p>Analisando detalhadamente o exemplo do slide oficial exibido acima:</p>
+    <ul>
+        <li><code>FROM centos:7</code> &rarr; <strong>Camada 1 (Base Layer):</strong> Define a imagem base do sistema operacional (CentOS 7). Todas as demais instruções serão executadas sobre essa base.</li>
+        <li><code>RUN yum -y update && yum -y install httpd</code> &rarr; <strong>Camada 2:</strong> Executa a atualização de pacotes e instala o servidor web Apache HTTPD, gravando os binários instalados como uma nova camada intermediária.</li>
+        <li><code>EXPOSE Port 80</code> &rarr; <strong>Camada 3:</strong> Adiciona metadados à imagem informando que o container escuta requisições na porta TCP 80.</li>
+        <li><code>ADD run-httpd.sh /run-httpd.sh</code> & <code>RUN chmod -v +x /run-httpd.sh</code> &rarr; <strong>Camada 4:</strong> Copia o script de inicialização do Apache para dentro da imagem e atribui permissões de execução.</li>
+        <li><code>CMD ["/run-httpd.sh"]</code> &rarr; <strong>Comando de Inicialização:</strong> Define o executável padrão que entrará em execução no momento em que o contêiner for instanciado.</li>
+    </ul>
+
+    <h3>A Grande Vantagem Operacional: O Cache de Camadas (Build Cache)</h3>
+    <p>Como cada uma das camadas é imutável e identificada por um hash criptográfico exclusivo, o Docker implementa um poderoso sistema de <strong>cache inteligente de compilação</strong>:</p>
+    <ul>
+        <li>Se um desenvolvedor alterar apenas o conteúdo do script <code>run-httpd.sh</code> (a Camada 4) e executar <code>docker build</code> novamente, o Docker não reexecutará os comandos de download do CentOS nem reinstalará o Apache via <code>yum</code>!</li>
+        <li>Ele detecta que as camadas 1, 2 e 3 permanecem idênticas, recupera essas camadas instantaneamente a partir do cache local e recompila exclusivamente a Camada 4 modificada.</li>
+        <li><em>Impacto na Prática:</em> Processos de compilação em esteiras de integração contínua (CI/CD) que levariam 10 a 15 minutos em máquinas virtuais tradicionais são concluídos em <strong>poucos segundos</strong> no Docker. Além disso, no momento de fazer o upload para o <strong>Amazon ECR</strong> ou download em instâncias EC2, apenas as camadas alteradas são transmitidas pela rede!</li>
+    </ul>
+
+    <span class="anchor-h2" id="mod8-docker-cli"></span>
+    <h2>4. Introducing Docker containers - part 2</h2>
+
+    <h4>Depois de compreender a teoria das camadas e o ciclo conceitual das imagens, o próximo passo essencial é dominar a <strong>Docker Command Line Interface (CLI)</strong>. Toda a interação prática com contêineres e imagens em ambientes Linux ou nas esteiras de integração contínua (CI/CD) é realizada através do comando base <code>docker</code>, seguido do subcomando de ação desejada.</h4>
+
+    <h3>Quadro Geral: Os Comandos Essenciais da Docker CLI</h3>
+    <p>Abaixo está a síntese oficial dos comandos mais importantes apresentada no curso para gerenciamento do ciclo de vida de imagens e contêineres:</p>
+
+    <div class="image-container">
+        <img src="img/docker_cli_commands.png" loading="lazy" alt="Tabela de comandos essenciais da Docker CLI: docker build, docker images, docker run, docker ps, docker stop, docker start, docker push, docker tag, docker logs, docker port, docker inspect, docker exec, docker rm, docker rmi">
+        <div class="image-caption">Quadro oficial de comandos essenciais da Docker CLI: criação de imagens, execução de contêineres, inspeção, depuração e ciclo de vida.</div>
+    </div>
+
+    <p>Esses comandos podem ser organizados pedagogicamente em cinco grandes fases operacionais:</p>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Comando</th>
+                <th>Descrição Oficial</th>
+                <th>Finalidade Prática e Cenário de Uso</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><code>docker build</code></td>
+                <td>Build an image from a Dockerfile.</td>
+                <td>Lê as instruções do <code>Dockerfile</code> e compila as camadas da imagem imutável.</td>
+            </tr>
+            <tr>
+                <td><code>docker images</code></td>
+                <td>List images on the Docker host.</td>
+                <td>Lista todas as imagens locais disponíveis no host com tags, IDs e tamanhos.</td>
+            </tr>
+            <tr>
+                <td><code>docker run</code></td>
+                <td>Launch a container from an image.</td>
+                <td>Instancia e executa um contêiner vivo a partir de uma imagem estática.</td>
+            </tr>
+            <tr>
+                <td><code>docker ps</code></td>
+                <td>List the running containers.</td>
+                <td>Lista os contêineres ativos em execução (ou todos com a flag <code>-a</code>).</td>
+            </tr>
+            <tr>
+                <td><code>docker exec</code></td>
+                <td>Run a command in a container.</td>
+                <td>Executa comandos ou abre um shell interativo dentro de um contêiner em execução.</td>
+            </tr>
+            <tr>
+                <td><code>docker logs</code></td>
+                <td>View container log output.</td>
+                <td>Exibe os fluxos de saída padrão (STDOUT e STDERR) gerados pela aplicação no contêiner.</td>
+            </tr>
+            <tr>
+                <td><code>docker port</code></td>
+                <td>List container port mappings.</td>
+                <td>Exibe o mapeamento ativo de portas entre o host físico e o contêiner.</td>
+            </tr>
+            <tr>
+                <td><code>docker inspect</code></td>
+                <td>Inspect container information.</td>
+                <td>Retorna metadados detalhados em JSON (IP de rede, volumes, variáveis de ambiente).</td>
+            </tr>
+            <tr>
+                <td><code>docker stop</code></td>
+                <td>Stop a running container.</td>
+                <td>Encerra a execução de um contêiner de forma graciosa enviando o sinal SIGTERM.</td>
+            </tr>
+            <tr>
+                <td><code>docker start</code></td>
+                <td>Start a container.</td>
+                <td>Reinicia um contêiner existente que estava parado sem recriá-lo do zero.</td>
+            </tr>
+            <tr>
+                <td><code>docker rm</code></td>
+                <td>Remove one or more containers.</td>
+                <td>Remove permanentemente do host contêineres que já foram finalizados.</td>
+            </tr>
+            <tr>
+                <td><code>docker rmi</code></td>
+                <td>Remove one or more images from the host.</td>
+                <td>Exclui imagens locais para liberar espaço de armazenamento em disco.</td>
+            </tr>
+            <tr>
+                <td><code>docker tag</code></td>
+                <td>Tag an image.</td>
+                <td>Atribui um novo alias/nome/versão a uma imagem (essencial para publicação no ECR).</td>
+            </tr>
+            <tr>
+                <td><code>docker push</code></td>
+                <td>Push the image to a registry.</td>
+                <td>Envia a imagem local para um repositório remoto (Docker Hub ou Amazon ECR).</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h3>1. O Ciclo de Criação: Do Código-Fonte à Imagem</h3>
+    <ul>
+        <li><strong><code>docker build</code> (O Cozinheiro que "Assa o Bolo"):</strong>
+            <p>É o comando responsável por interpretar o arquivo <code>Dockerfile</code> e executar cada uma de suas instruções sequencialmente para produzir a imagem imutável final.</p>
+            <pre><code>docker build --tag node_app .</code></pre>
+            <ul>
+                <li><strong>O ponto final (<code>.</code>):</strong> Define o <em>Build Context</em> (o contexto de compilação). Ele indica ao Docker daemon que todos os arquivos do diretório atual devem ser disponibilizados para comandos como <code>COPY</code> e <code>ADD</code>.</li>
+                <li><strong>A flag <code>--tag</code> (ou <code>-t</code>):</strong> Atribui um nome amigável e opcionalmente uma versão à imagem criada (no exemplo: <code>node_app</code>, assumindo automaticamente a tag padrão <code>:latest</code>).</li>
+            </ul>
+        </li>
+    </ul>
+
+    <div class="image-container">
+        <img src="img/docker_build_example.png" loading="lazy" alt="Exemplo prático do comando docker build --tag node_app . com envio de contexto e passos de compilação">
+        <div class="image-caption">Exemplo oficial de compilação com <code>docker build</code>: envio do contexto de build (9.007 MB), download da imagem base <code>node:11-alpine</code> e atribuição da tag <code>node_app:latest</code>.</div>
+    </div>
+
+    <ul>
+        <li><strong><code>docker images</code>:</strong> Exibe a tabela de imagens locais armazenadas no computador ou instância EC2 hospedeira, indicando o repositório, a tag, o Image ID exclusivo de 64 bits (exibido em forma truncada de 12 caracteres hexadecimais), a data de criação e o tamanho total em disco.</li>
+        <li><strong><code>docker tag</code>:</strong> Permite renomear ou marcar uma imagem existente com uma nova tag. Em fluxos de trabalho com a AWS, esse comando é fundamental para associar a imagem local ao endereço do repositório no <strong>Amazon ECR</strong> antes de realizar o push:
+            <pre><code># Marcando a imagem local para o repositório privado no Amazon ECR:
+docker tag node_app:latest 123456789012.dkr.ecr.us-east-1.amazonaws.com/cafe-supplier:v1</code></pre>
+        </li>
+    </ul>
+
+    <h3>2. O Ciclo de Execução: Da Imagem Estática ao Contêiner Vivo</h3>
+    <ul>
+        <li><strong><code>docker run</code> (Dando Vida ao Molde):</strong>
+            <p>Pega a imagem estática somente-leitura, cria uma instância isolada com sua camada de escrita no topo e inicializa o processo principal configurado no <code>CMD</code> ou <code>ENTRYPOINT</code>.</p>
+            <pre><code>docker run -d --name node_app_1 -p 8000:80 node_app</code></pre>
+            <ul>
+                <li><strong><code>-d</code> (Modo *Detached* / Segundo Plano):</strong> Executa o contêiner em background, liberando o terminal imediatamente para que o usuário possa continuar trabalhando. Sem a flag <code>-d</code>, o terminal fica preso aos logs de execução do contêiner.</li>
+                <li><strong><code>--name node_app_1</code>:</strong> Atribui um nome customizado e legível ao contêiner. Se essa opção for omitida, o Docker gerará automaticamente um nome aleatório combinando um adjetivo e o nome de um cientista famoso (ex: <code>nervous_einstein</code>).</li>
+                <li><strong><code>-p 8000:80</code> (Mapeamento de Portas / *Port Forwarding*):</strong> <strong>Conceito vital para exames AWS e redes!</strong> O formato é estritamente <code>-p &lt;porta-do-host&gt;:&lt;porta-do-container&gt;</code>. Isso significa que qualquer requisição que chegar na porta <code>8000</code> da máquina física (ou instância EC2) será encaminhada pelo daemon do Docker diretamente para a porta <code>80</code> dentro do contêiner isolado.</li>
+            </ul>
+        </li>
+        <li><strong><code>docker ps</code>:</strong> Lista os contêineres atualmente ativos, mostrando o Container ID, a imagem base, o comando de inicialização, o tempo de execução (*uptime*), os mapeamentos de porta e o nome atribuído. Para visualizar também os contêineres que já foram encerrados ou falharam, utiliza-se a flag <code>docker ps -a</code>.</li>
+    </ul>
+
+    <h3>3. Interação, Diagnóstico e Depuração</h3>
+    <ul>
+        <li><strong><code>docker exec</code> (Entrando no Contêiner):</strong>
+            <p>Permite executar novos comandos dentro de um contêiner que já está rodando. O caso de uso mais importante para desenvolvedores é abrir uma sessão de terminal interativa dentro do ambiente do contêiner para explorar arquivos, testar conexões de rede ou depurar variáveis:</p>
+            <pre><code>docker exec -it node_app_1 sh</code></pre>
+            <p>A combinação das flags <code>-i</code> (interativo, mantém o STDIN aberto) e <code>-t</code> (aloca um pseudo-TTY) permite navegar diretamente pelo sistema de arquivos Linux interno do contêiner como se você tivesse feito login via SSH!</p>
+        </li>
+        <li><strong><code>docker logs</code>:</strong>
+            <p>Exibe todo o histórico de logs emitido pelo contêiner (saídas de <code>console.log()</code>, <code>print()</code> ou logs de erro do servidor web). Utilize a flag <code>-f</code> (follow) para acompanhar o fluxo de logs em tempo real na tela.</p>
+            <pre><code>docker logs -f node_app_1</code></pre>
+        </li>
+        <li><strong><code>docker port</code>:</strong> Exibe rapidamente os mapeamentos de rede ativos para um contêiner específico (ex: <code>docker port node_app_1</code> revelará <code>80/tcp -> 0.0.0.0:8000</code>).</li>
+        <li><strong><code>docker inspect</code>:</strong> Gera um "raio-X" estruturado em formato JSON detalhando todas as configurações internas de baixo nível do contêiner: endereço IP atribuído na rede bridge virtual, variáveis de ambiente injetadas, volumes e binds montados, políticas de reinicialização e status de saúde do processo.</li>
+    </ul>
+
+    <h3>4. O Ciclo de Encerramento e Limpeza</h3>
+    <ul>
+        <li><strong><code>docker stop &lt;container&gt;</code>:</strong> Interrompe a execução do contêiner enviando primeiramente o sinal <code>SIGTERM</code> (dando à aplicação um período de tolerância de até 10 segundos para encerrar conexões de banco de dados e salvar arquivos com segurança antes de forçar o encerramento com <code>SIGKILL</code>).</li>
+        <li><strong><code>docker start &lt;container&gt;</code>:</strong> Reinicia um contêiner que estava parado preservando seu estado anterior na camada de escrita efêmera.</li>
+        <li><strong><code>docker rm &lt;container&gt;</code>:</strong> Remove o contêiner finalizado do sistema. Lembre-se: o contêiner precisa estar parado antes de poder ser removido (ou deve-se utilizar a flag forçada <code>-f</code>).</li>
+        <li><strong><code>docker rmi &lt;image&gt;</code>:</strong> Remove a imagem do host local para liberar espaço em disco, desde que nenhum contêiner (mesmo parado) dependa mais dela.</li>
+    </ul>
+
+    <h3>5. Compartilhamento: O Pipeline para a Nuvem</h3>
+    <ul>
+        <li><strong><code>docker push</code>:</strong> Faz o upload da imagem local compilada para um repositório remoto (Container Registry). Em esteiras corporativas da AWS, após efetuar login via <code>aws ecr get-login-password</code> e taguear a imagem com <code>docker tag</code>, você executa o <code>docker push</code> para disponibilizar a imagem no <strong>Amazon ECR</strong>. A partir desse momento, serviços de orquestração como <strong>AWS Elastic Beanstalk</strong>, <strong>Amazon ECS</strong> ou <strong>Amazon EKS</strong> conseguem baixar e instanciar contêineres automaticamente na nuvem!</li>
+    </ul>
+
+    <div class="callout-dica">
+        <strong>Resumo Prático para o Cenário da Cafeteria:</strong><br>
+        Para o sistema de rastreamento de grãos de café adquirido por Frank e Martha, Sofía utilizará <code>docker build -t cafe-supplier .</code> para gerar a imagem imutável da aplicação web, testará localmente com <code>docker run -p 8080:80</code>, enviará para o Amazon ECR com <code>docker push</code> e utilizará o <strong>AWS Elastic Beanstalk</strong> para orquestrar o deploy elástico em produção!
+    </div>
+
+    <span class="anchor-h2" id="mod8-lab"></span>
+    <div class="lab-section">
+        <h2>Lab 8.1: Migrating a Web Application to Docker Containers</h2>
+
+        <h3>Visão geral e objetivos do laboratório</h3>
+        <p>Neste laboratório prático, você realizará a migração completa de uma aplicação web legada de monitoramento de fornecedores e estoque — instalada diretamente nos sistemas operacionais convidados (Ubuntu Linux) de duas instâncias do <strong>Amazon Elastic Compute Cloud (Amazon EC2)</strong> — para contêineres padronizados e portáteis do <strong>Docker</strong>.</p>
+        <p>Você empacotará tanto a aplicação web desenvolvida em <strong>Node.js (Express)</strong> quanto o banco de dados relacional <strong>MySQL</strong> em contêineres autônomos, configurará a comunicação de rede bridge interna entre eles via variáveis de ambiente e, por fim, autenticará o Docker e publicará a imagem corporativa no registro gerenciado <strong>Amazon Elastic Container Registry (Amazon ECR)</strong>.</p>
+
+        <p>Depois de concluir este laboratório, você será capaz de:</p>
+        <ul>
+            <li>Escrever e estruturar um arquivo <code>Dockerfile</code> otimizado utilizando imagens base enxutas (Alpine Linux).</li>
+            <li>Compilar imagens Docker com o comando <code>docker build</code> atribuindo tags semânticas.</li>
+            <li>Executar e gerenciar contêineres em segundo plano (detached mode) com <code>docker run</code>, configurando mapeamento de portas de rede (<code>-p</code>).</li>
+            <li>Depurar e inspecionar variáveis de ambiente e configurações internas de contêineres com <code>docker exec</code>, <code>docker logs</code> e <code>docker inspect</code>.</li>
+            <li>Criar e exportar dumps lógicos de bancos de dados relacionais com <code>mysqldump</code> e inicializar contêineres MySQL com dados pré-carregados.</li>
+            <li>Configurar a comunicação de rede entre múltiplos contêineres Docker usando IPs virtuais da rede bridge e variáveis de ambiente dinâmicas (<code>APP_DB_HOST</code>).</li>
+            <li>Criar repositórios privados no <strong>Amazon Elastic Container Registry (Amazon ECR)</strong>.</li>
+            <li>Autenticar o cliente Docker na AWS via <code>aws ecr get-login-password</code> e realizar o envio (<code>docker push</code>) de imagens de contêiner para a nuvem.</li>
+        </ul>
+
+        <h3>Duração</h3>
+        <p>A duração estimada deste laboratório é de aproximadamente <strong>60 minutos</strong>.</p>
+
+        <h3>Restrições de serviço AWS</h3>
+        <p>Neste ambiente de laboratório, o acesso aos serviços e às ações de serviços da AWS é restrito ao estritamente necessário para concluir as etapas. É possível encontrar erros caso você tente acessar outros recursos ou executar ações além das descritas neste roteiro.</p>
+
+        <h3>Cenário do Laboratório</h3>
+        <p>Os cafés gourmet especiais e cappuccinos da cafeteria de Frank e Martha tornaram-se um sucesso absoluto na cidade. No entanto, garantir um fornecimento contínuo e confiável de grãos de altíssima qualidade tornou-se um desafio crítico de negócios. Recentemente, surgiu a oportunidade perfeita: um de seus principais fornecedores parceiros de grãos de café decidiu vender a empresa, e Frank e Martha rapidamente adquiriram o negócio.</p>
+        <p>A empresa adquirida utiliza uma aplicação web própria de rastreamento de estoque e cadastro de fornecedores rodando em duas instâncias EC2 dedicadas (uma para a aplicação Node.js e outra para o banco de dados MySQL). A desenvolvedora <strong>Sofía</strong> precisa entender a arquitetura existente e liderar a modernização tecnológica dessa aplicação, preparando-a para ser integrada ao ecossistema da cafeteria.</p>
+
+        <div class="callout-dica">
+            <strong>Evolução da Arquitetura do Laboratório:</strong><br>
+            <strong>Arquitetura Inicial:</strong> Instância EC2 <code>AppServerNode</code> (Node.js na porta 80 do SO convidado) comunicando-se diretamente via IP público com a instância EC2 <code>MysqlServerNode</code> (MySQL na porta 3306 do SO convidado).<br>
+            <strong>Arquitetura Final:</strong> Aplicação web (<code>node_app</code>) e banco de dados (<code>mysql_server</code>) totalmente migrados para contêineres Docker locais comunicando-se pela rede virtual bridge, e a imagem <code>node_app:latest</code> registrada no <strong>Amazon ECR</strong> para futuras implantações elásticas no AWS Elastic Beanstalk!
+        </div>
+
+        <h3>Passo a Passo das Tarefas</h3>
+
+        <h4>Tarefa 1: Preparação do ambiente de desenvolvimento</h4>
+        <p>Nesta tarefa, você conecta ao Visual Studio Code IDE (code-server) e configura as ferramentas de linha de comando para o laboratório.</p>
+        <ol>
+            <li><strong>Conectar ao VS Code IDE:</strong> Acesse <em>Details &rarr; AWS: Show</em> no painel do laboratório, copie as credenciais (<code>LabIDEURL</code> e <code>LabIDEPassword</code>) e abra o ambiente de desenvolvimento em uma nova aba do navegador.</li>
+            <li><strong>Baixar e extrair os arquivos do laboratório:</strong> No terminal Bash do VS Code, execute:
+                <pre><code>wget https://aws-tc-largeobjects.s3.us-west-2.amazonaws.com/CUR-TF-200-ACCDEV-2-91558/06-lab-containers/code.zip -P /home/ec2-user/environment
+unzip code.zip</code></pre>
+            </li>
+            <li><strong>Executar o script de setup:</strong> Conceda permissão e execute o script de preparação:
+                <pre><code>chmod +x ./resources/setup.sh && ./resources/setup.sh</code></pre>
+            </li>
+            <li><strong>Validar versões instaladas:</strong> Confirme a instalação da AWS CLI v2 com <code>aws --version</code> e do SDK com <code>pip3 show boto3</code>.</li>
+        </ol>
+
+        <h4>Tarefa 2: Análise da infraestrutura do aplicativo existente</h4>
+        <p>Antes de conteinerizar, é fundamental inspecionar como a aplicação opera atualmente no ambiente legado de instâncias EC2.</p>
+        <ol>
+            <li><strong>Inspecionar instâncias EC2:</strong> No Console AWS, navegue até o serviço <strong>Amazon EC2 &rarr; Instâncias</strong>. Observe três instâncias ativas:
+                <ul>
+                    <li><code>Lab IDE</code>: Instância onde seu VS Code e Docker daemon estão executando.</li>
+                    <li><code>AppServerNode</code>: Servidor web da aplicação legada do fornecedor.</li>
+                    <li><code>MysqlServerNode</code>: Servidor de banco de dados MySQL legado.</li>
+                </ul>
+            </li>
+            <li><strong>Testar a aplicação legada no navegador:</strong>
+                <ul>
+                    <li>Selecione <code>AppServerNode</code> e copie seu <em>Public IPv4 address</em>.</li>
+                    <li>Abra <code>http://&lt;Public-IP-AppServerNode&gt;</code> no navegador (porta HTTP 80 padrão).</li>
+                    <li>Navegue até <em>List of suppliers &rarr; Add a new supplier</em> e cadastre um novo fornecedor de teste (ex: <em>Nikki Wolf, 100 Main Street, CA, nwolf@example.com, 4155551212</em>).</li>
+                    <li>Clique em <em>Submit</em> e verifique que o registro é salvo com sucesso. Edite o telefone e salve novamente para confirmar a gravação direta no MySQL da outra instância EC2.</li>
+                </ul>
+            </li>
+            <li><strong>Analisar a base de código:</strong> No VS Code, explore <code>resources/codebase_partner</code>. Trata-se de uma aplicação <strong>Node.js</strong> construída sobre o framework <strong>Express</strong>, escutando conexões HTTP e conectando-se ao MySQL via driver nativo.</li>
+        </ol>
+
+        <h4>Tarefa 3: Migração do aplicativo para um contêiner do Docker</h4>
+        <p>Nesta tarefa, você empacotará a aplicação web Node.js em uma imagem Docker e resolverá o desafio de injeção de parâmetros de rede para o banco de dados.</p>
+        <ol>
+            <li><strong>Organizar a estrutura de diretórios:</strong>
+                <pre><code>mkdir -p ~/environment/containers/node_app
+mv ~/environment/resources/codebase_partner ~/environment/containers/node_app/</code></pre>
+            </li>
+            <li><strong>Criar o Dockerfile da aplicação web:</strong>
+                <pre><code>cd ~/environment/containers/node_app/codebase_partner
+touch Dockerfile</code></pre>
+                <p>Abra o arquivo no editor do VS Code e insira o seguinte conteúdo declarativo:</p>
+                <pre><code>FROM node:11-alpine
+RUN mkdir -p /usr/src/app
+WORKDIR /usr/src/app
+COPY . .
+RUN npm install
+EXPOSE 3000
+CMD ["npm", "run", "start"]</code></pre>
+                <p><em>Análise das Instruções:</em> Utiliza a distribuição enxuta <strong>Alpine Linux</strong> com Node.js pré-instalado (minimizando o tamanho da imagem final para menos de 85 MB), define o diretório de trabalho em <code>/usr/src/app</code>, copia o código do projeto, instala as dependências via <code>npm install</code>, declara a exposição da porta TCP <strong>3000</strong> e define o comando de entrada padrão para subir o servidor Express.</p>
+            </li>
+            <li><strong>Compilar a imagem Docker:</strong>
+                <pre><code>docker build --tag node_app .</code></pre>
+                <p>Verifique o registro da imagem executando <code>docker images</code> (observe a imagem <code>node_app:latest</code> criada com aproximadamente 84.5 MB).</p>
+            </li>
+            <li><strong>Iniciar o contêiner:</strong>
+                <pre><code>docker run -d --name node_app_1 -p 3000:3000 node_app</code></pre>
+                <p>Valide a resposta localmente com <code>curl http://localhost:3000</code>. O HTML da página inicial do fornecedor será retornado no terminal.</p>
+            </li>
+            <li><strong>Ajustar o Security Group do VS Code IDE:</strong>
+                <p>No console EC2, selecione a instância <code>Lab IDE</code> &rarr; <em>Segurança</em> &rarr; Grupo de Segurança &rarr; <em>Editar regras de entrada</em>. Adicione uma regra do tipo <strong>TCP personalizado</strong> na porta <code>3000</code> com origem <em>Meu IP</em> e salve.</p>
+            </li>
+            <li><strong>Diagnóstico de Conexão com o Banco de Dados:</strong>
+                <p>Acesse <code>http://&lt;Public-IP-LabIDE&gt;:3000</code> no navegador e clique em <em>List of suppliers</em>. A página reportará um erro de falha ao recuperar fornecedores.</p>
+                <p><em>Investigação da Causa Raiz:</em> Ao examinar <code>app/config/config.js</code>, constatamos que a aplicação busca o host do banco na variável de ambiente <code>APP_DB_HOST</code>. Como o contêiner foi iniciado sem essa variável, ela assumiu o IP fixo de fallback codificado (<code>3.82.161.206</code>), que não corresponde ao IP da instância MySQL!</p>
+                <p>Ao conectar via <code>docker exec -ti node_app_1 sh</code> e executar <code>env</code>, confirma-se a ausência da variável no ambiente do processo.</p>
+            </li>
+            <li><strong>Reiniciar o contêiner com a variável de ambiente correta:</strong>
+                <pre><code>docker stop node_app_1 && docker rm node_app_1
+docker run -d --name node_app_1 -p 3000:3000 -e APP_DB_HOST="&lt;Public-IP-MysqlServerNode&gt;" node_app</code></pre>
+                <p>Atualize a página no navegador em <code>http://&lt;Public-IP-LabIDE&gt;:3000/suppliers</code>: a lista de fornecedores agora carrega perfeitamente com os dados salvos anteriormente na instância EC2 MySQL!</p>
+            </li>
+        </ol>
+
+        <h4>Tarefa 4: Migração do banco de dados MySQL para um contêiner do Docker</h4>
+        <p>Nesta tarefa, você migrará o próprio banco de dados relacional para dentro de um contêiner Docker isolado.</p>
+        <ol>
+            <li><strong>Exportar os dados com <code>mysqldump</code>:</strong>
+                <pre><code>cd /home/ec2-user/environment/containers/node_app/codebase_partner
+mysqldump -P 3306 -h &lt;Public-IP-MysqlServerNode&gt; -u nodeapp -p --databases COFFEE > ../../my_sql.sql</code></pre>
+                <p>Digite a senha <code>coffee</code> no prompt. O script SQL de carga será gerado em <code>~/environment/containers/my_sql.sql</code>.</p>
+            </li>
+            <li><strong>Modificação intencional para auditoria de proveniência:</strong>
+                <p>Abra <code>my_sql.sql</code> no VS Code. Localize a linha de <code>INSERT INTO suppliers</code> (por volta da linha 51) e altere o endereço de <code>100 Main Street</code> para <code>100 Container Street</code>. Salve o arquivo. Essa alteração comprovará inequivocamente quando a aplicação estiver lendo do novo banco em contêiner!</p>
+            </li>
+            <li><strong>Criar o Dockerfile do MySQL:</strong>
+                <pre><code>cd /home/ec2-user/environment/containers
+mkdir mysql && cd mysql
+mv ../my_sql.sql .
+touch Dockerfile</code></pre>
+                <p>Edite o <code>Dockerfile</code> do MySQL:</p>
+                <pre><code>FROM mysql:8.0.23
+COPY ./my_sql.sql /
+EXPOSE 3306</code></pre>
+            </li>
+            <li><strong>Limpar cache de disco e compilar a imagem MySQL:</strong>
+                <pre><code>sudo docker image prune -f && sudo docker container prune -f
+docker build --tag mysql_server .</code></pre>
+            </li>
+            <li><strong>Executar o contêiner MySQL:</strong>
+                <pre><code>docker run --name mysql_1 -p 3306:3306 -e MYSQL_ROOT_PASSWORD=rootpw -d mysql_server</code></pre>
+            </li>
+            <li><strong>Importar o dump e conceder privilégios ao usuário:</strong>
+                <pre><code>sed -i '1d' my_sql.sql
+docker exec -i mysql_1 mysql -u root -prootpw < my_sql.sql
+docker exec -i mysql_1 mysql -u root -prootpw -e "CREATE USER 'nodeapp' IDENTIFIED WITH mysql_native_password BY 'coffee'; GRANT all privileges on *.* to 'nodeapp'@'%';"</code></pre>
+            </li>
+        </ol>
+
+        <h4>Tarefa 5: Teste da arquitetura 100% conteinerizada (Node.js + MySQL em Contêineres)</h4>
+        <p>Nesta tarefa, você conecta os dois contêineres Docker entre si através da rede virtual interna do Docker Engine.</p>
+        <ol>
+            <li><strong>Interromper o contêiner Node.js anterior:</strong>
+                <pre><code>docker stop node_app_1 && docker rm node_app_1</code></pre>
+            </li>
+            <li><strong>Descobrir o endereço IP interno do contêiner MySQL:</strong>
+                <pre><code>docker inspect mysql_1 | grep IPAddress</code></pre>
+                <p>Na seção <code>NetworkSettings.Networks.bridge</code>, identifique o IP interno atribuído pelo Docker (geralmente <code>172.17.0.3</code> ou similar na sub-rede virtual).</p>
+            </li>
+            <li><strong>Instanciar o contêiner Node.js apontando para o contêiner MySQL:</strong>
+                <pre><code>docker run -d --name node_app_1 -p 3000:3000 -e APP_DB_HOST=&lt;IP-Interno-MySQL-Container&gt; node_app</code></pre>
+            </li>
+            <li><strong>Validar a comunicação no navegador:</strong>
+                <p>Abra <code>http://&lt;Public-IP-LabIDE&gt;:3000/suppliers</code> e recarregue. A lista de fornecedores carrega com sucesso exibindo <strong>100 Container Street</strong>! Isso comprova categoricamente que a aplicação Node.js está consultando o banco de dados em contêiner local, sem qualquer dependência das instâncias EC2 antigas!</p>
+            </li>
+        </ol>
+
+        <h4>Tarefa 6: Adição das imagens do Docker ao Amazon ECR</h4>
+        <p>Nesta etapa final, você disponibiliza o artefato conteinerizado no registro gerenciado de contêineres da AWS (Amazon ECR) para viabilizar deploys em escala.</p>
+        <ol>
+            <li><strong>Autenticar a Docker CLI no Amazon ECR:</strong>
+                <p>Obtenha o seu ID de conta AWS de 12 dígitos no menu de usuário do console e execute no terminal:</p>
+                <pre><code>aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin &lt;account-id&gt;.dkr.ecr.us-east-1.amazonaws.com</code></pre>
+                <p>A mensagem <code>Login Succeeded</code> confirmará a autorização do token temporário.</p>
+            </li>
+            <li><strong>Criar o repositório no Amazon ECR:</strong>
+                <pre><code>aws ecr create-repository --repository-name node-app</code></pre>
+                <p>A AWS retornará o JSON de criação com o <code>repositoryArn</code> e o <code>repositoryUri</code>.</p>
+            </li>
+            <li><strong>Taguear a imagem com a URI do repositório remoto:</strong>
+                <pre><code>docker tag node_app:latest &lt;account-id&gt;.dkr.ecr.us-east-1.amazonaws.com/node-app:latest</code></pre>
+            </li>
+            <li><strong>Enviar a imagem para a nuvem com <code>docker push</code>:</strong>
+                <pre><code>docker push &lt;account-id&gt;.dkr.ecr.us-east-1.amazonaws.com/node-app:latest</code></pre>
+                <p>O Docker transmitirá cada uma das camadas da imagem para o Amazon ECR, exibindo os hashes e a mensagem de digest final.</p>
+            </li>
+            <li><strong>Confirmar a imagem no ECR:</strong>
+                <pre><code>aws ecr list-images --repository-name node-app</code></pre>
+                <p>A saída confirmará a presença do artefato com a tag <code>latest</code> e seu respectivo digest criptográfico.</p>
+            </li>
+        </ol>
+
+        <h3>Decisão Arquitetural da Cafeteria para Produção</h3>
+        <p>Sofía alcançou uma vitória expressiva ao migrar a aplicação de estoque e fornecedores de máquinas virtuais pesadas para contêineres Docker ultraleves e padronizados, publicando o artefato de produção no <strong>Amazon ECR</strong>.</p>
+        <p>No entanto, ao analisar a arquitetura de produção com consultores especialistas da AWS, Sofía tomou uma decisão arquitetural fundamental para o próximo laboratório:</p>
+        <ul>
+            <li><strong>Aplicação Web (Stateless):</strong> Continuará executando em contêineres Docker gerenciados elasticamente pelo <strong>AWS Elastic Beanstalk</strong>, aproveitando o balanceamento de carga automático e a portabilidade.</li>
+            <li><strong>Banco de Dados (Stateful):</strong> Embora seja tecnicamente viável rodar o MySQL em contêineres (como provado neste laboratório para desenvolvimento), rodar bancos relacionais em contêineres em produção impõe alta complexidade operacional (gerenciamento de volumes persistentes EBS, backups manuais e ausência de failover automático). Por essa razão, no próximo laboratório Sofía migrará os dados para o <strong>Amazon RDS / Aurora Serverless</strong>, combinando a flexibilidade dos contêineres na camada web com a resiliência e backups automatizados de um banco relacional gerenciado pela AWS!</li>
+        </ul>
+    </div>
+
+    <span class="anchor-h2" id="mod8-microservices"></span>
+    <h2>6. Using containers for microservices</h2>
+
+    <h4>A grande força motriz que impulsionou a adoção explosiva de contêineres na nuvem corporativa foi a consolidação da <strong>Arquitetura de Microsserviços</strong>. Embora seja tecnicamente possível empacotar uma aplicação monolítica gigantesca em um único contêiner ("Fat Container"), essa abordagem neutraliza quase todos os benefícios de agilidade, escalabilidade granular e velocidade de inicialização que a tecnologia de contêineres oferece.</h4>
+
+    <h3>A Batalha Arquitetural: Monólito vs. Microsserviços</h3>
+    <p>Compreender o contraste estrutural e operacional entre monólitos e microsserviços é um dos tópicos mais recorrentes em avaliações e exames de arquitetura da AWS:</p>
+
+    <div class="image-container">
+        <img src="img/monolithic_vs_microservices_container.png" loading="lazy" alt="Comparação arquitetural: Monolithic (Load Balancer -> Bloco único de serviços fortemente acoplados -> Banco único) vs Microservices (Load Balancer -> Storefront UI -> Serviços desacoplados com bancos próprios)">
+        <div class="image-caption">Comparação arquitetural oficial: Sistema Monolítico fortemente acoplado com banco centralizado versus Arquitetura de Microsserviços desacoplada e poliglota com bancos de dados isolados.</div>
+    </div>
+
+    <h4>1. A Arquitetura Monolítica (O "Bloco Único")</h4>
+    <ul>
+        <li><strong>Como Funciona:</strong> Todas as funcionalidades da aplicação de e-commerce (interface web da vitrine, autenticação de contas de clientes, gestão de carrinho de compras, cálculo de frete, gateway de pagamentos e relatórios de vendas) são compiladas, empacotadas e executadas como um <strong>único processo gigante</strong>, compartilhando o mesmo esquema de banco de dados relacional.</li>
+        <li><strong>O Problema da Escalabilidade Excessiva:</strong> Se uma campanha promocional (como a Black Friday) gerar uma sobrecarga súbita de acessos ao serviço de "Carrinho de Compras", a equipe de infraestrutura é obrigada a escalar o monólito inteiro! Você precisa provisionar instâncias de servidores gigantescas e replicar todo o catálogo, o módulo de frete e os relatórios (desperdiçando memória RAM, CPU e orçamento da AWS).</li>
+        <li><strong>O Risco do Ponto Único de Falha (Single Point of Failure):</strong> Como todos os módulos rodam no mesmo processo em memória, se o desenvolvedor cometer um erro de ponteiro nulo ou vazamento de memória no módulo secundário de cálculo de frete, o processo do servidor sofre um encerramento forçado (*crash*) e a loja inteira sai do ar para todos os clientes do mundo!</li>
+        <li><strong>Acoplamento Tecnológico Estrito:</strong> Toda a organização fica refém de uma única linguagem de programação e de uma versão fixa de biblioteca, dificultando inovações pontuais.</li>
+    </ul>
+
+    <h4>2. A Arquitetura de Microsserviços (Desacoplamento e Autonomia)</h4>
+    <ul>
+        <li><strong>Como Funciona:</strong> O sistema é decomposto em múltiplos componentes pequenos, modulares e independentes, com responsabilidade única e contexto bem delimitado (*Bounded Context*).
+            <ul>
+                <li>O <em>Storefront UI</em> é um serviço independente em Node.js.</li>
+                <li>O <em>Account service</em> é um serviço autônomo.</li>
+                <li>O <em>Cart service</em> roda em Python com seu próprio banco otimizado em memória (Amazon ElastiCache).</li>
+                <li>O <em>Shipping service</em> roda em Java com seu próprio banco de dados relacional.</li>
+            </ul>
+        </li>
+        <li><strong>Comunicação Leve por APIs:</strong> Os serviços comunicam-se exclusivamente através de contratos de interface bem definidos, utilizando chamadas REST/HTTP, gRPC ou filas de mensageria assíncrona (Amazon SQS, SNS e EventBridge).</li>
+        <li><strong>A Vantagem da Escalabilidade Cirúrgica:</strong> Se o Carrinho de Compras receber 100.000 requisições simultâneas, você escala <strong>apenas o contêiner do Carrinho</strong>, mantendo os demais serviços dimensionados de forma econômica.</li>
+        <li><strong>Isolamento Total de Falhas:</strong> Se o serviço de frete falhar temporariamente, os clientes continuam navegando na vitrine, adicionando produtos ao carrinho e fechando pedidos (com frete calculado posteriormente por fila assíncrona).</li>
+    </ul>
+
+    <h3>Por que os Contêineres são o "Par Perfeito" para Microsserviços?</h3>
+    <p>A filosofia de microsserviços encontra no Docker o veículo de transporte ideal por quatro razões técnicas fundamentais:</p>
+    <ol>
+        <li><strong>Liberdade e Descentralização Tecnológica (Arquitetura Poliglota):</strong>
+            <p>Como cada microsserviço reside em seu próprio contêiner isolado, cada equipe de engenharia tem autonomia total para escolher a pilha tecnológica mais adequada para o seu domínio (ex: Node.js para I/O intensivo no front-end, Python para cálculos e IA no carrinho, Java ou Rust para alta performance financeira). Diferentes versões de bibliotecas coexistem no mesmo cluster sem qualquer conflito.</p>
+        </li>
+        <li><strong>Produtos Independentes e Ciclos de Deploy Desacoplados:</strong>
+            <p>O contêiner empacota o código e todas as suas dependências em um artefato imutável. Isso permite que a equipe de frete faça deploys de novas versões 10 vezes ao dia em produção sem exigir coordenação com as equipes de catálogo ou pagamentos, e sem nunca pausar o sistema.</p>
+        </li>
+        <li><strong>Projetados para Falhar (Descartabilidade: *Start Fast, Fail Fast*):</strong>
+            <p>Contêineres inicializam e encerram em frações de segundo. Se uma instância apresentar lentidão ou comportamento anômalo, o orquestrador simplesmente a destrói de forma graciosa e instancia um novo contêiner saudável em milissegundos. Isso viabiliza padrões arquiteturais de alta resiliência, como <em>Circuit Breakers</em> e auto-recuperação (*Self-Healing*).</p>
+        </li>
+        <li><strong>Paridade Rigorosa entre Dev e Prod:</strong>
+            <p>O contêiner assegura que o ambiente de desenvolvimento local, a esteira de testes automatizados e o cluster de produção na AWS compartilhem exatamente os mesmos binários, variáveis e configurações, fortalecendo a cultura DevOps e garantindo previsibilidade absoluta.</p>
+        </li>
+    </ol>
+
+    <span class="anchor-h2" id="mod8-aws-container-services"></span>
+    <h2>7. Introducing AWS container services</h2>
+
+    <h4>Executar e gerenciar um ou dois contêineres na máquina local através do terminal é simples e direto. O verdadeiro desafio surge no mundo corporativo real: como manter em produção um ecossistema com dezenas de instâncias de servidores e centenas de contêineres distribuídos? Como agendar contêineres nos hosts com memória e CPU disponíveis? Como balancear o tráfego de rede e o que acontece quando um servidor físico falha?</h4>
+    <p>Para solucionar essa complexidade operacional em larga escala, a AWS oferece um conjunto robusto de serviços gerenciados de registro, orquestração e computação elástica.</p>
+
+    <h3>1. Amazon ECR (Elastic Container Registry): O Cofre das Imagens</h3>
+    <p>Antes de executar contêineres em produção na nuvem, você precisa de um local seguro, confiável e altamente disponível para armazenar seus artefatos compilados. O <strong>Amazon ECR</strong> é o "Docker Hub corporativo e privado" da AWS.</p>
+    <ul>
+        <li><strong>Totalmente Gerenciado e de Alta Disponibilidade:</strong> As imagens Docker são armazenadas com redundância de dados respaldada pela arquitetura do Amazon S3, garantindo durabilidade de 99,999999999% (11 noves).</li>
+        <li><strong>Segurança Integrada em Primeiro Lugar:</strong> Diferente de repositórios públicos, no Amazon ECR todas as comunicações são criptografadas em trânsito via HTTPS/TLS, as imagens são criptografadas em repouso por padrão (com AWS KMS) e o controle de acesso é estritamente regulado pelas políticas e perfis do <strong>AWS IAM</strong>.</li>
+        <li><strong>Escaneamento Automatizado de Vulnerabilidades:</strong> O ECR realiza verificações de segurança nas imagens (<em>Image Scanning</em>) identificando vulnerabilidades e exposições comuns (CVEs) em pacotes de sistema operacional.</li>
+        <li><strong>Desempenho Otimizado:</strong> O tráfego de rede entre o Amazon ECR e outros serviços AWS na mesma região (como ECS, EKS ou EC2) é roteado pela infraestrutura interna de alta velocidade da AWS, sem custos adicionais de transferência de dados (*Data Transfer*).</li>
+    </ul>
+
+    <h3>2. Amazon ECS (Elastic Container Service): O Maestro da Orquestração Nativa</h3>
+    <p>O <strong>Amazon ECS</strong> é o orquestrador nativo da AWS projetado para automatizar a implantação, o agendamento (*scheduling*), a escalabilidade e o gerenciamento contínuo de contêineres Docker em larga escala.</p>
+    <ul>
+        <li><strong>Como Funciona:</strong> O ECS recupera a imagem armazenada no Amazon ECR, interpreta a <strong>Definição de Tarefa (Task Definition)</strong> — que define memória, CPU, portas de rede e variáveis de ambiente — e distribui os contêineres de forma otimizada pelas Zonas de Disponibilidade (Multi-AZ), garantindo resiliência e auto-recuperação contínua.</li>
+        <li><strong>Integração Nativa Profunda com o Ecossistema AWS:</strong>
+            <ul>
+                <li><strong>Application Load Balancer (ALB):</strong> Suporte a <em>Dynamic Port Mapping</em>, permitindo rodar múltiplos contêineres da mesma aplicação no mesmo host sem conflito de portas TCP.</li>
+                <li><strong>AWS IAM:</strong> Concessão de permissões granulares por contêiner através de <em>IAM Roles for Tasks</em> (cada contêiner acessa apenas os recursos que precisa).</li>
+                <li><strong>Amazon CloudWatch:</strong> Roteamento nativo de logs de contêiner via driver <code>awslogs</code> e métricas em tempo real de consumo de CPU/Memória.</li>
+                <li><strong>AWS Secrets Manager e SSM Parameter Store:</strong> Injeção segura de senhas e credenciais diretamente no ambiente do contêiner.</li>
+            </ul>
+        </li>
+    </ul>
+
+    <h3>3. O Grande Dilema de Arquitetura: Fargate vs. EC2 (Atenção para Provas!)</h3>
+    <p>Ao solicitar que o Amazon ECS execute seus contêineres, você deve definir o <strong>Launch Type</strong> (modelo de infraestrutura computacional onde os contêineres serão hospedados):</p>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Critério de Comparação</th>
+                <th>Modelo Amazon EC2 (Launch Type EC2)</th>
+                <th>Modelo AWS Fargate (Launch Type Serverless)</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>Gerenciamento de Servidores</strong></td>
+                <td>Você gerencia e mantém o cluster de instâncias EC2 (SO, patches, atualizações do Docker daemon).</td>
+                <td><strong>Totalmente Serverless.</strong> Você não gerencia nenhuma máquina virtual ou cluster.</td>
+            </tr>
+            <tr>
+                <td><strong>Nível de Controle</strong></td>
+                <td>Controle total sobre o SO hospedeiro, acesso root via SSH e escolha detalhada de hardware/AMIs.</td>
+                <td>Nenhum acesso ao SO subjacente. Foco estritamente na configuração da aplicação.</td>
+            </tr>
+            <tr>
+                <td><strong>Modelo de Cobrança</strong></td>
+                <td>Você paga pelas instâncias EC2 ativas, estejam os contêineres consumindo recursos ou ociosos.</td>
+                <td>Você paga <strong>por segundo</strong> estritamente pela vCPU e memória RAM alocadas para as tarefas em execução.</td>
+            </tr>
+            <tr>
+                <td><strong>Elasticidade e Picos</strong></td>
+                <td>Escala em dois níveis: precisa adicionar mais instâncias EC2 antes de poder subir novos contêineres.</td>
+                <td><strong>Instantânea.</strong> O Fargate aloca capacidade computacional sob demanda para cada contêiner em segundos.</td>
+            </tr>
+            <tr>
+                <td><strong>Melhores Casos de Uso</strong></td>
+                <td>Workloads previsíveis e estáveis com Instâncias Reservadas / Savings Plans, GPUs customizadas ou requisitos regulatórios de SO.</td>
+                <td>Microsserviços modernos, times enxutos (foco total em código), workloads com picos imprevisíveis e jobs em lote (batch).</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <span class="anchor-h2" id="mod8-aws-container-services-part2"></span>
+    <h2>8. Introducing AWS container services - part 2</h2>
+
+    <h4>Compreendidos os conceitos de orquestração e modelos de lançamento, aprofundamos agora o fluxo operacional completo de publicação de imagens no <strong>Amazon ECR</strong> e exploramos a solução gerenciada de Kubernetes da AWS: o <strong>Amazon EKS</strong>.</h4>
+
+    <h3>O Fluxo Prático do Amazon ECR (Do Terminal para a Nuvem)</h3>
+    <p>A publicação de uma aplicação conteinerizada no Amazon ECR envolve uma esteira de 4 etapas essenciais executadas pela combinação da AWS CLI com a Docker CLI:</p>
+    <ol>
+        <li><strong>Criar o Repositório no ECR:</strong>
+            <p>Primeiro, você provisiona o "cofre" que armazenará as versões da sua imagem na nuvem:</p>
+            <pre><code>aws ecr create-repository --repository-name cafe-supplier --region us-east-1</code></pre>
+        </li>
+        <li><strong>Compilar e Taguear a Imagem Localmente:</strong>
+            <p>No seu ambiente de desenvolvimento, você compila a imagem via <code>docker build</code> e, em seguida, utiliza o <code>docker tag</code> para associar a imagem local ao endereço completo do repositório remoto (incluindo o ID da sua conta AWS de 12 dígitos e a região):</p>
+            <pre><code>docker build -t cafe-supplier .
+docker tag cafe-supplier:latest 123456789012.dkr.ecr.us-east-1.amazonaws.com/cafe-supplier:latest</code></pre>
+        </li>
+        <li><strong>Autenticação Segura (O "Login" no ECR):</strong>
+            <p>O cliente Docker nativo não compreende credenciais do IAM. O comando <code>aws ecr get-login-password</code> gera um token de autenticação temporário de 12 horas que é repassado via pipe diretamente para o comando <code>docker login</code>:</p>
+            <pre><code>aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 123456789012.dkr.ecr.us-east-1.amazonaws.com</code></pre>
+        </li>
+        <li><strong>O Envio (Push) das Camadas para a Nuvem:</strong>
+            <p>Com o cliente autenticado, você envia as camadas da imagem para o repositório seguro da AWS:</p>
+            <pre><code>docker push 123456789012.dkr.ecr.us-east-1.amazonaws.com/cafe-supplier:latest</code></pre>
+        </li>
+    </ol>
+
+    <h3>Amazon EKS (Elastic Kubernetes Service): O Padrão Aberto na Nuvem</h3>
+    <p>Se o <strong>Amazon ECS</strong> é a solução nativa, simples e opinativa da AWS, o <strong>Amazon EKS</strong> é a resposta líder de mercado para empresas que adotaram a plataforma open-source de orquestração <strong>Kubernetes</strong>.</p>
+    <ul>
+        <li><strong>O que é o Kubernetes:</strong> É o sistema open-source de orquestração de contêineres mais popular e utilizado globalmente, mantido pela Cloud Native Computing Foundation (CNCF), permitindo automação de deploy, escalonamento e gerenciamento de aplicações em contêineres agrupados em <em>Pods</em>.</li>
+        <li><strong>A Complexidade Resolvida pelo EKS:</strong> Instalar, configurar e manter o plano de controle (<em>Control Plane</em>) do Kubernetes por conta própria é uma tarefa extremamente árdua, arriscada e propensa a falhas operacionais (exige gerenciar o banco de dados distribuído <code>etcd</code>, múltiplos servidores de API <code>kube-apiserver</code>, controladores e agendadores com alta disponibilidade). O <strong>Amazon EKS</strong> automatiza integralmente essa camada:
+            <ul>
+                <li>A AWS provisiona e gerencia o Control Plane com alta disponibilidade garantida em <strong>múltiplas Zonas de Disponibilidade (Multi-AZ)</strong> com SLA de 99,95%.</li>
+                <li>A AWS gerencia upgrades de versão do Kubernetes, backups do etcd e substituição automática de instâncias defeituosas do control plane de forma invisível.</li>
+            </ul>
+        </li>
+        <li><strong>Conformidade Oficial Estrita (Certified Kubernetes Conformant):</strong> O EKS roda a versão oficial upstream do Kubernetes puro. Isso garante portabilidade total: qualquer manifesto YAML, chart do Helm, operador ou ferramenta do ecossistema CNCF (Istio, Prometheus, Fluentd, ArgoCD) funciona no EKS sem nenhuma alteração no código.</li>
+        <li><strong>Os Nós Operários (Worker Nodes no EKS):</strong> Assim como no ECS, no EKS você pode escolher como executar os Pods reais da sua aplicação:
+            <ul>
+                <li><strong>Amazon EC2:</strong> Nós de trabalho em instâncias EC2 gerenciadas por <em>Managed Node Groups</em> (a AWS automatiza o provisionamento e atualizações de nós) ou nós autogerenciados.</li>
+                <li><strong>AWS Fargate (Serverless no Kubernetes):</strong> Através de <em>Fargate Profiles</em>, o EKS executa cada Pod individual em seu próprio ambiente de execução de microVM totalmente isolado, sem necessidade de gerenciar nós EC2 ou planejar capacidade de cluster!</li>
+            </ul>
+        </li>
+    </ul>
+
+    <div class="callout-dica">
+        <strong>Resumo de Decisão Arquitetural: ECS vs. EKS vs. Elastic Beanstalk:</strong><br>
+        • <strong>AWS Elastic Beanstalk:</strong> A forma mais simples de subir aplicações web em contêineres na nuvem sem precisar aprender a fundo sobre orquestradores (PaaS gerenciado).<br>
+        • <strong>Amazon ECS:</strong> Escolha recomendada para quem deseja uma orquestração poderosa, leve e nativa da AWS com curva de aprendizado suave e integração perfeita com IAM/ALB.<br>
+        • <strong>Amazon EKS:</strong> Escolha estratégica para empresas que já utilizam Kubernetes on-premises, necessitam de portabilidade multi-cloud ou possuem ecossistemas avançados baseados em ferramentas da CNCF.
+    </div>
+
+    <span class="anchor-h2" id="mod8-elastic-beanstalk-part1"></span>
+    <h2>9. Deploying applications with AWS Elastic Beanstalk - part 1</h2>
+
+    <h4>O <strong>AWS Elastic Beanstalk</strong> é um serviço gerenciado do tipo <em>Platform-as-a-Service (PaaS)</em> projetado para que equipes de desenvolvimento consigam implantar, monitorar e escalar aplicações e microsserviços web rapidamente na nuvem. Ele automatiza integralmente os detalhes mais complexos de infraestrutura — como provisionamento de servidores, balanceamento de carga, auto-scaling e health checks contínuos —, permitindo que você gerencie todos os recursos subjacentes centralizados em um único ambiente unificado.</h4>
+
+    <h3>Componentes Principais do Elastic Beanstalk</h3>
+    <p>Para operar com o Elastic Beanstalk, é essencial dominar a hierarquia e o vocabulário de seus blocos fundamentais:</p>
+    <ul>
+        <li><strong>Application (Aplicação):</strong>
+            <p>Uma coleção lógica de componentes do Elastic Beanstalk que funciona conceitualmente como uma pasta de projeto. Ela agrupa versões de código-fonte, ambientes provisionados e configurações salvas.</p>
+        </li>
+        <li><strong>Application Version (Versão da Aplicação):</strong>
+            <p>Uma iteração específica, rotulada e imutável do código-fonte ou contêiner que será implantado. Normalmente aponta para um pacote compactado (arquivo <code>.zip</code> ou <code>.war</code>) armazenado no Amazon S3 ou para uma imagem Docker hospedada no Amazon ECR.</p>
+        </li>
+        <li><strong>Environment (Ambiente):</strong>
+            <p>O conjunto real de recursos computacionais da AWS provisionados e configurados para executar uma versão específica da aplicação. Uma única aplicação pode abrigar múltiplos ambientes independentes, como <code>Development</code>, <code>Staging</code> e <code>Production</code>.</p>
+        </li>
+        <li><strong>Environment Tier (Camada do Ambiente):</strong>
+            <p>Define a arquitetura e a finalidade operacional da aplicação, determinando quais recursos o Beanstalk provisionará:</p>
+            <ul>
+                <li><strong>Web Server Tier:</strong> Projetado para atender requisições HTTP/HTTPS diretamente de usuários na internet. Inclui um <strong>Application Load Balancer (ALB)</strong> que distribui o tráfego de entrada para instâncias EC2 em um Auto Scaling Group.</li>
+                <li><strong>Worker Tier:</strong> Projetado para tarefas de processamento em segundo plano (*background processing*) e filas de longa duração. Não possui load balancer voltado à internet; em vez disso, utiliza um daemon especializado (<em>SQSD</em>) que lê mensagens de uma fila do <strong>Amazon SQS</strong> e as encaminha via HTTP local para a aplicação processar.</li>
+            </ul>
+        </li>
+        <li><strong>Environment Configuration & Saved Configuration:</strong>
+            <p>Coleção de parâmetros e ajustes que controlam o comportamento do ambiente (tipo e família das instâncias EC2, portas de rede, variáveis de ambiente, gatilhos de escalabilidade). As configurações podem ser exportadas como <strong>Saved Configurations</strong> para servirem de modelos reutilizáveis (*templates*) em novos ambientes.</p>
+        </li>
+        <li><strong>Platform (Plataforma):</strong>
+            <p>A combinação pré-configurada de sistema operacional (Amazon Linux 2 / Amazon Linux 2023), runtime de linguagem (Node.js, Python, Java, PHP, .NET, Go, Ruby), servidor web reverso (Nginx ou Apache HTTPD) e motor de contêineres Docker.</p>
+        </li>
+        <li><strong>Elastic Beanstalk CLI (<code>eb</code>):</strong>
+            <p>Interface de linha de comando interativa e altamente produtiva desenvolvida em Python que permite inicializar projetos (<code>eb init</code>), provisionar ambientes (<code>eb create</code>), implantar código (<code>eb deploy</code>), acompanhar logs (<code>eb logs</code>) e abrir a aplicação no navegador (<code>eb open</code>) diretamente pelo terminal.</p>
+        </li>
+    </ul>
+
+    <h3>Modelo de Permissões do IAM no Elastic Beanstalk</h3>
+    <p>O Elastic Beanstalk opera através de uma divisão clara de responsabilidades de segurança no AWS Identity and Access Management (IAM):</p>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Papel / Política IAM</th>
+                <th>Quando é Atribuída</th>
+                <th>Finalidade Operacional e Permissões</th>
+                <th>Perfil Padrão Gerenciado</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>Service Role (Função de Serviço)</strong></td>
+                <td>Durante a criação inicial do ambiente.</td>
+                <td>Permite que o serviço Elastic Beanstalk invoque APIs da AWS em seu nome para provisionar e gerenciar recursos (EC2, ELB, Auto Scaling, CloudWatch).</td>
+                <td><code>aws-elasticbeanstalk-service-role</code></td>
+            </tr>
+            <tr>
+                <td><strong>Instance Profile (Perfil de Instância)</strong></td>
+                <td>Durante a criação do ambiente; anexado diretamente às instâncias EC2.</td>
+                <td>Concede permissões para as instâncias EC2 baixarem o pacote de código do S3, gravarem logs no CloudWatch, enviarem métricas de saúde e baixarem imagens do ECR.</td>
+                <td><code>aws-elasticbeanstalk-ec2-role</code> (inclui as políticas <code>WebTier</code>, <code>WorkerTier</code> e <code>MulticontainerDocker</code>).</td>
+            </tr>
+            <tr>
+                <td><strong>User Policies (Políticas de Usuário)</strong></td>
+                <td>Atribuída a desenvolvedores ou grupos no IAM.</td>
+                <td>Determina as permissões que usuários humanos ou esteiras de CI/CD possuem para criar, modificar, configurar ou visualizar ambientes do Beanstalk.</td>
+                <td><code>AdministratorAccess</code> ou <code>AWSElasticBeanstalkReadOnly</code></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h3>Implantação de Contêineres: Amazon ECS vs. Elastic Beanstalk</h3>
+    <p>O Elastic Beanstalk utiliza o <strong>AWS CloudFormation</strong> nos bastidores para automatizar todo o trabalho pesado de infraestrutura:</p>
+    <ul>
+        <li><strong>O processo no Amazon ECS puro:</strong> Exige que o engenheiro crie e gerencie manualmente as VPCs, sub-redes, Security Groups, cluster de servidores, perfis do IAM, Task Definitions com JSONs complexos e crie um Service para manter as tarefas rodando.</li>
+        <li><strong>O processo no Elastic Beanstalk:</strong> Exige apenas escrever um arquivo de manifesto simples chamado <code>Dockerrun.aws.json</code> (ou fornecer um <code>Dockerfile</code>), selecionar a plataforma Docker no console ou CLI e clicar em iniciar. Toda a orquestração do ECS e da rede é abstraída e gerenciada de forma transparente.</li>
+    </ul>
+
+    <h3>A Plataforma Docker Multicontêiner</h3>
+    <p>A plataforma multicontêiner do Elastic Beanstalk permite executar múltiplos contêineres Docker simultaneamente dentro da mesma instância EC2, aproveitando ao máximo a capacidade de CPU e memória em um grupo de Auto Scaling. Para isso, as imagens dos contêineres devem estar previamente publicadas em um registro (como o <strong>Amazon ECR</strong> ou Docker Hub público).</p>
+    <p>Ao iniciar um ambiente Docker Multicontêiner, o Elastic Beanstalk provisiona automaticamente os seguintes recursos do Amazon ECS para você:</p>
+    <ol>
+        <li><strong>Amazon ECS Cluster:</strong> Um cluster ECS dedicado é criado automaticamente nos bastidores para abrigar as instâncias EC2 do ambiente.</li>
+        <li><strong>Amazon ECS Task Definition:</strong> A definição de tarefas do ECS é gerada automaticamente pelo Beanstalk a partir da leitura do seu arquivo <code>Dockerrun.aws.json</code>.</li>
+        <li><strong>Amazon ECS Task:</strong> O Beanstalk inicia e gerencia as tarefas ECS em cada instância EC2, escalando-as dinamicamente conforme a demanda de acessos varia.</li>
+        <li><strong>Amazon ECS Container Agent:</strong> Um daemon que executa em contêiner em cada instância EC2, comunicando-se com o serviço ECS para coordenar e reportar o status de execução de cada contêiner.</li>
+    </ol>
+
+    <span class="anchor-h2" id="mod8-elastic-beanstalk-part2"></span>
+    <h2>10. Deploying applications with AWS Elastic Beanstalk - part 2</h2>
+
+    <h4>Depois de compreender a infraestrutura e a orquestração do Elastic Beanstalk, focamos agora na mecânica prática de configuração através do arquivo <code>Dockerrun.aws.json</code>, nas avançadas <strong>Políticas de Implantação (Deployment Policies)</strong> para ambientes corporativos e nas estratégias de <strong>Deploy Blue/Green</strong> e <strong>Canary Testing</strong>.</h4>
+
+    <h3>Configuração de Contêineres: O Arquivo <code>Dockerrun.aws.json</code></h3>
+    <p>Para executar aplicações Docker multicontêiner no Elastic Beanstalk, as instâncias EC2 exigem um arquivo de configuração declarativo denominado <strong><code>Dockerrun.aws.json</code></strong>. Esse arquivo pode ser enviado sozinho diretamente no deploy ou empacotado dentro de um arquivo <code>.zip</code> junto com o código-fonte.</p>
+    <p>O arquivo possui três seções estruturais indispensáveis:</p>
+    <pre><code>{
+  "AWSEBDockerrunVersion": 2,
+  "volumes": [
+    {
+      "name": "app-storage",
+      "host": {
+        "sourcePath": "/var/app/storage"
+      }
+    }
+  ],
+  "containerDefinitions": [
+    {
+      "name": "web-app",
+      "image": "123456789012.dkr.ecr.us-east-1.amazonaws.com/cafe-supplier:latest",
+      "essential": true,
+      "memory": 512,
+      "portMappings": [
+        {
+          "hostPort": 80,
+          "containerPort": 3000
+        }
+      ],
+      "mountPoints": [
+        {
+          "sourceVolume": "app-storage",
+          "containerPath": "/usr/src/app/storage"
+        }
+      ]
+    }
+  ]
+}</code></pre>
+    <ul>
+        <li><strong><code>AWSEBDockerrunVersion</code>:</strong> Define a versão da especificação. Para ambientes multicontêiner no Elastic Beanstalk, o valor deve ser <strong>obrigatoriamente <code>2</code></strong> (o valor <code>1</code> é exclusivo para implantações de contêiner único).</li>
+        <li><strong><code>volumes</code>:</strong> Declara os volumes de armazenamento mapeados a partir de diretórios do host EC2 ou do pacote de código. Esses volumes são montados nos contêineres para persistência ou compartilhamento de arquivos entre múltiplos contêineres.</li>
+        <li><strong><code>containerDefinitions</code>:</strong> Uma lista (array) contendo a definição detalhada de cada contêiner (imagem no ECR, memória alocada em MB, portas mapeadas, variáveis de ambiente e volumes). O formato é rigorosamente compatível com as <em>Task Definitions</em> do Amazon ECS.</li>
+    </ul>
+
+    <h3>Políticas de Implantação (Deployment Policies): Velocidade vs. Segurança</h3>
+    <p>Ao atualizar a versão de uma aplicação em produção, o Elastic Beanstalk permite escolher entre diferentes políticas de deploy para equilibrar tempo de implantação, custo de recursos e tolerância a indisponibilidade (*downtime*):</p>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Política de Deploy</th>
+                <th>Mecânica de Funcionamento</th>
+                <th>Impacto na Capacidade e Disponibilidade</th>
+                <th>Recomendação de Uso</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>All at once (Tudo de uma vez)</strong></td>
+                <td>Implanta a nova versão em todas as instâncias EC2 simultaneamente.</td>
+                <td><strong>Causa Downtime.</strong> Todas as instâncias ficam indisponíveis enquanto o serviço reinicia.</td>
+                <td>Ambientes de desenvolvimento e testes rápidos, onde o downtime é aceitável. Método mais rápido.</td>
+            </tr>
+            <tr>
+                <td><strong>Rolling (Contínua em Lotes)</strong></td>
+                <td>Atualiza as instâncias em lotes sequenciais (ex: 2 instâncias por vez).</td>
+                <td><strong>Sem downtime</strong>, porém <strong>reduz a capacidade total</strong> do cluster durante o processo.</td>
+                <td>Produção com tráfego moderado e capacidade ociosa suficiente para suportar a perda temporária de um lote.</td>
+            </tr>
+            <tr>
+                <td><strong>Rolling with additional batch (Com Lote Adicional)</strong></td>
+                <td>Lança previamente um lote extra de novas instâncias antes de começar a atualizar os lotes existentes.</td>
+                <td><strong>Sem downtime e SEM redução de capacidade</strong> (mantém 100% da capacidade ativa em todo o deploy).</td>
+                <td>Produção crítica que opera perto do limite de carga e não tolera nenhuma degradação de desempenho.</td>
+            </tr>
+            <tr>
+                <td><strong>Immutable (Imutável)</strong></td>
+                <td>Lança um grupo de Auto Scaling temporário paralelo com instâncias totalmente limpas e novas. Serve tráfego para ambas até validar os health checks.</td>
+                <td><strong>Sem downtime e com segurança máxima.</strong> Rollback quase instantâneo destruindo o novo grupo caso haja falha.</td>
+                <td>Implantações de missão crítica onde a integridade é prioritária e não se deseja herdar configurações residuais antigas.</td>
+            </tr>
+            <tr>
+                <td><strong>Traffic Splitting (Divisão de Tráfego / Canary)</strong></td>
+                <td>Lança instâncias novas paralelas (como na Imutável), mas direciona apenas uma pequena fração do tráfego (ex: 10%) para a nova versão.</td>
+                <td><strong>Sem downtime e risco mínimo.</strong> Permite testar a versão em produção real com usuários reais (*Canary Testing*).</td>
+                <td>Lançamento gradual de versões com validação comportamental antes da virada completa de 100% do tráfego.</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h3>Namespaces e Automação de Configuração com <code>.ebextensions</code></h3>
+    <p>Todas as opções de implantação e parâmetros de ambiente podem ser versionados como código (IaC) adicionando arquivos de configuração com extensão <code>.config</code> dentro da pasta oculta <code>.ebextensions/</code> na raiz do projeto:</p>
+    <ul>
+        <li><strong><code>aws:elasticbeanstalk:command</code>:</strong> Utilizado para configurar a estratégia de implantação, o tempo limite (*timeout*), o tamanho percentual ou numérico dos lotes e se o deploy deve ser cancelado automaticamente caso os testes de saúde falhem:
+            <pre><code>option_settings:
+  aws:elasticbeanstalk:command:
+    DeploymentPolicy: RollingWithAdditionalBatch
+    BatchSizeType: Percentage
+    BatchSize: 50
+    Timeout: 600</code></pre>
+        </li>
+        <li><strong><code>aws:elasticbeanstalk:trafficsplitting</code>:</strong> Utilizado para parametrizar a política de Divisão de Tráfego (Canary Testing):
+            <pre><code>option_settings:
+  aws:elasticbeanstalk:trafficsplitting:
+    NewVersionPercent: 10
+    EvaluationTime: 15</code></pre>
+            <p>No exemplo acima, exatamente 10% do tráfego é direcionado para a nova versão durante uma janela de avaliação de 15 minutos. Se os alarmes do CloudWatch permanecerem saudáveis, os 90% restantes são migrados automaticamente!</p>
+        </li>
+    </ul>
+
+    <h3>Implantações Blue/Green (Azul/Verde) com Troca de CNAME (Swap CNAMEs)</h3>
+    <p>Enquanto as políticas anteriores atualizam instâncias dentro do mesmo ambiente, a abordagem <strong>Blue/Green</strong> consiste em manter dois ambientes do Elastic Beanstalk totalmente independentes e paralelos:</p>
+    <ol>
+        <li>O ambiente atual de produção (<strong>Blue</strong>) atende 100% dos usuários no URL público (ex: <code>cafe-api.elasticbeanstalk.com</code>).</li>
+        <li>Você clona o ambiente ou cria um novo ambiente idêntico (<strong>Green</strong>) e implanta a nova versão nele, testando e homologando as alterações em isolamento total.</li>
+        <li><strong>A Virada de Chave (Swap Environment CNAMEs):</strong> No console ou CLI (<code>eb swap</code>), você executa a troca de CNAMEs. O Elastic Beanstalk altera o mapeamento de DNS nos bastidores, redirecionando instantaneamente todo o tráfego de produção para o ambiente Green sem nenhuma perda de conexão!</li>
+        <li><em>Uso Obrigatório:</em> Esse método é <strong>estritamente obrigatório</strong> quando você precisa atualizar seu ambiente para uma versão de plataforma do Beanstalk incompatível com a atual (por exemplo, migrando de uma AMI legada do Amazon Linux 2 para o Amazon Linux 2023, ou trocando o tipo de Load Balancer de Classic para Application Load Balancer).</li>
+    </ol>
+
+    <div class="callout-dica">
+        <strong>Síntese para o Arquiteto de Nuvem:</strong><br>
+        • O Elastic Beanstalk centraliza todo o ciclo de vida da aplicação em um único painel com automação de infraestrutura via CloudFormation.<br>
+        • O arquivo <code>Dockerrun.aws.json</code> (versão 2) possibilita rodar contêineres Docker multicontêiner sem a sobrecarga de gerenciar clusters ECS manualmente.<br>
+        • Para máxima segurança e zero downtime, utilize as políticas <strong>Rolling with additional batch</strong>, <strong>Immutable</strong> ou estratégias <strong>Blue/Green</strong> com Swap CNAMEs!
+    </div>
+
+    <span class="anchor-h2" id="mod8-lab2"></span>
+    <div class="lab-section">
+        <h2>Lab 8.2: Running Containers on a Managed Service</h2>
+
+        <h3>Visão Geral e Objetivos do Laboratório</h3>
+        <p>No laboratório anterior (Lab 8.1), você conteinerizou a aplicação web e o banco de dados da cafeteria em contêineres Docker locais rodando dentro de instâncias Amazon EC2. Neste laboratório prático avançado, você elevará a maturidade arquitetural da solução ao migrar a infraestrutura para <strong>serviços gerenciados da AWS</strong>: a camada de dados será hospedada no <strong>Amazon Aurora Serverless v2</strong> (compatível com MySQL), enquanto a camada de aplicação web conteinerizada será orquestrada e provisionada automaticamente pelo <strong>AWS Elastic Beanstalk</strong>.</p>
+        <p>Além disso, você integrará a nova infraestrutura conteinerizada ao site público da cafeteria (hospedado no Amazon S3) por meio de um proxy HTTP configurado no <strong>Amazon API Gateway</strong>, permitindo que os clientes consultem em tempo real o estoque de grãos de café diretamente dos fornecedores.</p>
+
+        <h4>Principais Objetivos de Aprendizado:</h4>
+        <ul>
+            <li>Criar e configurar um cluster de banco de dados relacional com <strong>Amazon Aurora Serverless v2</strong> usando o AWS Management Console.</li>
+            <li>Configurar a infraestrutura de rede na Amazon VPC com sub-redes em múltiplas Zonas de Disponibilidade (Multi-AZ) e tabelas de rotas públicas para suportar balanceamento de carga e alta disponibilidade.</li>
+            <li>Executar e testar localmente o contêiner Docker no VS Code IDE, conectando-o ao endpoint do Aurora Serverless.</li>
+            <li>Utilizar o <strong>RDS Query Editor</strong> para criar usuários, bancos de dados, privilégios e esquemas relacionais diretamente no navegador via HTTPS.</li>
+            <li>Importar dumps SQL completos para povoar tabelas relacionais de fornecedores (<code>suppliers</code>) e grãos (<code>beans</code>).</li>
+            <li>Analisar políticas e perfis de instância do <strong>AWS IAM</strong> necessários para permitir que instâncias EC2 gerenciadas pelo Elastic Beanstalk autentiquem e extraiam imagens do <strong>Amazon ECR</strong>.</li>
+            <li>Provisionar uma aplicação e ambiente no <strong>AWS Elastic Beanstalk</strong> utilizando a AWS CLI e arquivos de configuração (<code>options.txt</code>).</li>
+            <li>Implantar o contêiner de produção no Elastic Beanstalk utilizando o arquivo de manifesto <code>Dockerrun.aws.json</code> (versão 1).</li>
+            <li>Criar um método de proxy HTTP no <strong>Amazon API Gateway</strong> para encaminhar chamadas REST para o Elastic Beanstalk e testar a integração ponta a ponta no site estático do S3.</li>
+        </ul>
+
+        <div class="callout-dica">
+            <strong>Duração Estimada:</strong> 90 minutos<br>
+            <strong>Restrições de Serviço AWS:</strong> O acesso aos serviços da AWS neste laboratório é estritamente limitado aos recursos necessários (VPC, RDS Aurora Serverless, ECR, Elastic Beanstalk, IAM, API Gateway e S3). Tentativas de provisionar recursos fora do escopo resultarão em erros de permissão.
+        </div>
+
+        <h3>Cenário de Negócios: Desacoplando Estado e Escalando com Serviços Gerenciados</h3>
+        <p>Após a aquisição do fornecedor de café por Frank e Martha, Sofía conteinerizou a aplicação web de controle de fornecedores. No entanto, os proprietários solicitaram que a manutenção manual fosse drasticamente reduzida e que o ambiente estivesse preparado para picos futuros de escalabilidade.</p>
+        <p>Durante seus estudos arquiteturais, Sofía identificou um princípio fundamental de engenharia em nuvem: <strong>bancos de dados relacionais são stateful e não devem ser executados em contêineres dinâmicos e efêmeros em ambientes de produção</strong>. Contêineres podem ser destruídos, reiniciados ou realocados a qualquer momento pelo orquestrador. Garantir persistência de dados, replicação síncrona confiável, failover automático e consistência ACID sobre volumes de contêineres é complexo e propenso a falhas.</p>
+        <p>Por esse motivo, Sofía decidiu desacoplar a arquitetura:</p>
+        <ul>
+            <li><strong>Camada de Dados:</strong> Migrada do contêiner MySQL para o <strong>Amazon Aurora Serverless v2</strong>. O Aurora Serverless escala instantaneamente suas Unidades de Capacidade Aurora (ACUs) em resposta à carga de transações e reduz a capacidade nos períodos de ociosidade, garantindo alta performance com custos otimizados.</li>
+            <li><strong>Camada Web:</strong> Hospedada no <strong>AWS Elastic Beanstalk</strong> utilizando a plataforma Docker no Amazon Linux 2. O Beanstalk gerencia automaticamente o provisionamento do EC2, Auto Scaling, Classic/Application Load Balancer e monitoramento de saúde.</li>
+            <li><strong>Camada de Borda / Integração:</strong> O <strong>Amazon API Gateway</strong> atua como fachada segura, expondo o recurso <code>/bean_products</code> com CORS habilitado e encaminhando requisições via proxy HTTP diretamente para o endpoint do Elastic Beanstalk.</li>
+        </ul>
+
+        <div class="callout-alerta">
+            <strong>Evolução da Arquitetura:</strong><br>
+            • <strong>Início do Laboratório:</strong> Aplicação web rodando localmente no IDE e imagens armazenadas no Amazon ECR. VPC configurada com apenas 1 sub-rede.<br>
+            • <strong>Arquitetura Final:</strong> Arquitetura de 3 camadas totalmente desacoplada e gerenciada: Usuário/Navegador &rarr; S3 (Frontend) &rarr; API Gateway (Proxy HTTP) &rarr; Elastic Beanstalk (Docker em EC2 com Auto Scaling & Load Balancer em Multi-AZ) &rarr; Amazon Aurora Serverless v2 (Cluster MySQL com auto-scaling de ACUs).
+        </div>
+
+        <hr>
+
+        <h3>Tarefa 1: Preparação do Ambiente de Desenvolvimento</h3>
+        <p>Nesta etapa inicial, você configurará o VS Code IDE baseado em nuvem, baixará o pacote de artefatos do laboratório e executará o script de automação para restaurar o estado dos laboratórios anteriores (S3, DynamoDB, API Gateway e repositório ECR).</p>
+
+        <ol>
+            <li>Conecte-se ao <strong>VS Code IDE</strong> utilizando a URL (<code>LabIDEURL</code>) e a senha (<code>LabIDEPassword</code>) fornecidas nos detalhes do laboratório.</li>
+            <li>No terminal Bash integrado do VS Code, faça o download e descompacte os arquivos do laboratório:
+                <pre><code>wget https://aws-tc-largeobjects.s3.us-west-2.amazonaws.com/CUR-TF-200-ACCDEV-2-91558/07-lab-deploy/code.zip -P /home/ec2-user/environment
+cd /home/ec2-user/environment
+unzip code.zip</code></pre>
+            </li>
+            <li>Conceda permissão de execução ao script de inicialização e execute-o:
+                <pre><code>chmod +x ./resources/setup.sh && ./resources/setup.sh</code></pre>
+                <p>Quando o script solicitar seu endereço IPv4, informe o seu IP público da internet (obtido em ferramentas como <em>whatismyipaddress.com</em>). Este endereço será configurado na política de bucket do S3 para permitir acesso exclusivo do seu navegador ao site estático.</p>
+            </li>
+            <li>Verifique a versão da AWS CLI e a presença da biblioteca Boto3:
+                <pre><code>aws --version
+pip3 show boto3</code></pre>
+            </li>
+            <li>Confirme o funcionamento do site estático da cafeteria navegando até o console do <strong>Amazon S3</strong>, selecionando o bucket com sufixo <code>-s3bucket</code>, acessando a aba <strong>Propriedades</strong> e clicando na URL de hospedagem estática.</li>
+            <li>Crie um bloco de anotações (bloco de notas local) para registrar os seguintes identificadores que serão coletados ao longo do laboratório:
+                <pre><code>IDE VPC ID:
+IDE Availability Zone:
+IDE subnet ID:
+extraSubnetForRds subnet ID:
+IDE security group ID:
+Database endpoint:
+Repository URI:
+Elastic Beanstalk URL:</code></pre>
+            </li>
+        </ol>
+
+        <hr>
+
+        <h3>Tarefa 2: Configuração das Sub-redes para Amazon RDS e AWS Elastic Beanstalk</h3>
+        <p>Tanto o <strong>Amazon RDS / Aurora</strong> (via DB Subnet Groups) quanto o <strong>AWS Elastic Beanstalk</strong> com balanceamento de carga exigem a presença de <strong>pelo menos duas sub-redes em Zonas de Disponibilidade (AZs) distintas</strong> na mesma VPC. Isso garante resiliência contra falhas em um datacenter físico.</p>
+        <p>Como o ambiente inicial possui apenas uma sub-rede, você criará a segunda sub-rede pública e atualizará as rotas para a internet.</p>
+
+        <ol>
+            <li>No console da AWS, acesse o serviço <strong>VPC</strong> &gt; <strong>Suas VPCs</strong>. Selecione a <code>VPC do IDE</code> e anote seu ID no bloco de notas (<code>IDE VPC ID</code>).</li>
+            <li>No menu lateral, selecione <strong>Sub-redes</strong>. Localize a sub-rede existente <code>IDE Public Subnet One</code>:
+                <ul>
+                    <li>Anote a <strong>Zona de Disponibilidade</strong> (ex: <code>us-east-1a</code>).</li>
+                    <li>Anote o <strong>ID da sub-rede</strong> como <code>IDE subnet ID</code>.</li>
+                </ul>
+            </li>
+            <li>Clique em <strong>Criar sub-rede</strong> e defina os parâmetros:
+                <ul>
+                    <li><strong>ID da VPC:</strong> Selecione a <code>VPC do IDE</code>.</li>
+                    <li><strong>Nome da sub-rede:</strong> <code>extraSubnetForRds</code></li>
+                    <li><strong>Zona de Disponibilidade:</strong> Escolha uma AZ diferente da primeira (ex: se a primeira for <code>us-east-1a</code>, selecione <code>us-east-1b</code>).</li>
+                    <li><strong>Bloco CIDR IPv4:</strong> <code>10.0.2.0/24</code></li>
+                </ul>
+                Clique em <strong>Criar sub-rede</strong>.
+            </li>
+            <li>Habilite a atribuição automática de IP público na nova sub-rede:
+                <ul>
+                    <li>Selecione <code>extraSubnetForRds</code> &gt; menu <strong>Ações</strong> &gt; <strong>Editar configurações de sub-rede</strong>.</li>
+                    <li>Marque a opção <strong>Ativar endereço IPv4 público de atribuição automática</strong> (<em>Enable auto-assign public IPv4 address</em>).</li>
+                    <li>Clique em <strong>Salvar</strong> e copie o ID da sub-rede como <code>extraSubnetForRds subnet ID</code>.</li>
+                </ul>
+            </li>
+            <li>Associe a tabela de rotas pública à nova sub-rede:
+                <ul>
+                    <li>Selecione <code>extraSubnetForRds</code> e clique na aba <strong>Tabela de rotas</strong>.</li>
+                    <li>Clique em <strong>Editar associação da tabela de rotas</strong>.</li>
+                    <li>Substitua a tabela de rotas principal pela tabela de rotas pública que contém a rota para <code>0.0.0.0/0</code> apontando para o Internet Gateway (<code>igw-xxxxxxxxxx</code>).</li>
+                    <li>Clique em <strong>Salvar</strong>. Agora ambas as sub-redes possuem acesso à internet pública.</li>
+                </ul>
+            </li>
+        </ol>
+
+        <div class="callout-dica">
+            <strong>Por que sub-redes públicas para o Elastic Beanstalk?</strong><br>
+            O Elastic Beanstalk provisionará instâncias EC2 e o Classic Load Balancer nessas sub-redes. Sem rota para <code>0.0.0.0/0</code> via Internet Gateway, as instâncias não conseguiriam autenticar no Amazon ECR nem baixar as imagens Docker de fornecedores.
+        </div>
+
+        <hr>
+
+        <h3>Tarefa 3: Configuração do Banco de Dados Amazon Aurora Serverless v2</h3>
+        <p>Nesta tarefa, você provisionará um cluster Aurora Serverless v2 compatível com MySQL, configurando credenciais autogerenciadas, limite elástico de ACUs e conectividade com a VPC do IDE.</p>
+
+        <ol>
+            <li>No console da AWS, navegue até o serviço <strong>RDS</strong> e selecione <strong>Criar banco de dados</strong>.</li>
+            <li>Defina as seguintes configurações estruturais:
+                <ul>
+                    <li><strong>Método de criação:</strong> Criação padrão (<em>Standard create</em>).</li>
+                    <li><strong>Tipo de mecanismo:</strong> <strong>Aurora (MySQL-Compatible)</strong>.</li>
+                    <li><strong>Versão do mecanismo:</strong> <strong>Aurora MySQL 3.07.0 (compatible with MySQL 8.0.36)</strong>.</li>
+                    <li><strong>Modelos:</strong> <strong>Dev/Teste</strong>.</li>
+                    <li><strong>Identificador do cluster de banco de dados:</strong> <code>supplierdb</code></li>
+                    <li><strong>Gerenciamento de credenciais:</strong> <strong>Autogerenciada</strong>.</li>
+                    <li><strong>Nome de usuário principal:</strong> <code>admin</code></li>
+                    <li><strong>Senha principal:</strong> <code>coffee_beans_for_all</code> (desmarque a geração automática de senha e confirme a mesma senha).</li>
+                    <li><strong>Classe de instância de banco de dados:</strong> <strong>Serverless v2</strong> (mantenha a faixa padrão de 2 a 16 ACUs - Aurora Capacity Units).</li>
+                    <li><strong>Nuvem privada virtual (VPC):</strong> <code>IDE VPC</code>.</li>
+                    <li><strong>Grupo de segurança de VPC (firewall):</strong> Escolha <em>Grupos de segurança da VPC existentes</em>, remova o grupo <code>default</code> e adicione o grupo de segurança que contém <code>Lab IDE</code> no nome.</li>
+                    <li><strong>API de dados do RDS:</strong> Marque a caixa <strong>Habilitar a API de dados do RDS</strong> (Data API).</li>
+                    <li><strong>Monitoramento:</strong> Desmarque a opção <em>Habilitar Insights de Performance</em> e desmarque <em>Habilitar monitoramento avançado</em>.</li>
+                    <li><strong>Configuração adicional &gt; Nome do banco de dados inicial:</strong> <code>suppliers</code></li>
+                </ul>
+                Clique em <strong>Criar banco de dados</strong> e aguarde o provisionamento do cluster.
+            </li>
+            <li>Coleta de Parâmetros de Conexão:
+                <ul>
+                    <li>Clique no cluster <code>supplierdb</code> e acerte até que o status da instância <code>supplierdb-instance-1</code> mude para <strong>Disponível</strong>.</li>
+                    <li>Na seção <strong>Conectividade e segurança</strong>, copie o <strong>Endpoint</strong> do cluster (ex: <code>supplierdb.cluster-xxxxxxxxxxx.us-east-1.rds.amazonaws.com</code>) e salve-o como <code>Database endpoint</code>.</li>
+                    <li>Na seção <em>Grupos de segurança da VPC</em>, clique no link do grupo de segurança e copie seu ID (ex: <code>sg-0e52adxxxxxxxx</code>) como <code>IDE security group ID</code>.</li>
+                </ul>
+            </li>
+        </ol>
+
+        <hr>
+
+        <h3>Tarefa 4: Análise da Imagem do Contêiner no Amazon ECR</h3>
+        <p>O script de setup executado na Tarefa 1 fez o build e push da imagem Docker <code>cafe/node-web-app</code> para o Amazon Elastic Container Registry (ECR). Aqui você inspecionará os metadados do repositório tanto pelo console quanto pela CLI.</p>
+
+        <ol>
+            <li>No console da AWS, acesse o <strong>Amazon ECR</strong> &gt; <strong>Repositórios</strong>. Localize o repositório <code>cafe/node-web-app</code>.</li>
+            <li>Copie o valor completo do campo <strong>URI</strong> e anote no bloco de notas como <code>Repository URI</code> (ex: <code>101010101010.dkr.ecr.us-east-1.amazonaws.com/cafe/node-web-app</code>).</li>
+            <li>No terminal Bash do VS Code, inspecione o repositório via AWS CLI:
+                <pre><code>aws ecr describe-repositories</code></pre>
+                <p>Exemplo de saída formatada:</p>
+                <pre><code>{
+    "repositories": [
+        {
+"repositoryArn": "arn:aws:ecr:us-east-1:10101010101:repository/cafe/node-web-app",
+"registryId": "10101010101",
+"repositoryName": "cafe/node-web-app",
+"repositoryUri": "10101010101.dkr.ecr.us-east-1.amazonaws.com/cafe/node-web-app",
+"imageTagMutability": "MUTABLE",
+"encryptionConfiguration": {
+    "encryptionType": "AES256"
+}
+        }
+    ]
+}</code></pre>
+            </li>
+            <li>Inspecione as imagens publicadas no repositório:
+                <pre><code>aws ecr describe-images --repository-name cafe/node-web-app</code></pre>
+                <p>A saída confirmará a presença da tag <code>latest</code>, o Digest criptográfico SHA256 e o tamanho do pacote (~27.7 MB).</p>
+            </li>
+        </ol>
+
+        <hr>
+
+        <h3>Tarefa 5: Configuração da Comunicação Contêiner-Banco de Dados</h3>
+        <p>Antes de delegar a orquestração para o Elastic Beanstalk, é uma boa prática de engenharia testar a comunicação entre o contêiner Docker e o banco de dados Aurora Serverless localmente no VS Code IDE.</p>
+
+        <ol>
+            <li>Inicie o contêiner Docker apontando a variável de ambiente <code>APP_DB_HOST</code> para o endpoint do cluster Aurora Serverless:
+                <pre><code>docker run -d --name node-web-app-1 -p 8000:3000 -e APP_DB_HOST="&lt;db-endpoint&gt;" cafe/node-web-app</code></pre>
+                <p><em>Exemplo:</em></p>
+                <pre><code>docker run -d --name node-web-app-1 -p 8000:3000 -e APP_DB_HOST="supplierdb.cluster-xxxxxxxxxxx.us-east-1.rds.amazonaws.com" cafe/node-web-app</code></pre>
+            </li>
+            <li>Valide localmente via terminal que a aplicação Express está respondendo na porta 8000:
+                <pre><code>curl http://localhost:8000</code></pre>
+                <p>A resposta retornará o documento HTML da página inicial do aplicativo de fornecedores de café.</p>
+            </li>
+            <li>Configure o Grupo de Segurança do EC2 (<code>Lab IDE SG</code>):
+                <ul>
+                    <li>No console da AWS, vá em <strong>EC2</strong> &gt; <strong>Grupos de segurança</strong>.</li>
+                    <li>Selecione o grupo que contém <code>Lab IDE SG</code> e clique em <strong>Editar regras de entrada</strong>.</li>
+                    <li><strong>Regra 1 (Acesso Web ao IDE):</strong> Tipo: <em>TCP personalizado</em>, Porta: <code>8000</code>, Origem: <em>Meu IP</em>.</li>
+                    <li><strong>Regra 2 (Comunicação com o Aurora):</strong> Tipo: <em>MYSQL/Aurora</em>, Porta: <code>3306</code>, Origem: <em>Personalizado</em> &rarr; selecione o próprio grupo de segurança <code>Lab IDE SG</code>.</li>
+                </ul>
+                <p><em>Explicação:</em> A regra na porta 3306 é autorreferenciada (o grupo de segurança permite tráfego de entrada originado por instâncias associadas ao mesmo grupo de segurança), viabilizando a conexão segura ao Aurora.</p>
+            </li>
+            <li>Teste no navegador acessando <code>http://&lt;Public-IPv4-Address-do-IDE&gt;:8000</code>.</li>
+            <li>Clique em <strong>List of suppliers</strong>. Uma mensagem de erro de banco de dados será exibida:
+                <div class="callout-alerta">
+                    <strong>Erro Esperado:</strong> A aplicação falha ao tentar consultar a tabela <code>suppliers</code> e o banco de dados <code>COFFEE</code>, pois eles ainda não foram criados dentro do cluster <code>supplierdb</code>.
+                </div>
+            </li>
+        </ol>
+
+        <hr>
+
+        <h3>Tarefa 6: Criação dos Objetos de Banco de Dados com o RDS Query Editor</h3>
+        <p>O <strong>RDS Query Editor</strong> permite executar comandos SQL diretamente no navegador via HTTPS, sem necessidade de clientes SQL locais instalados na máquina física.</p>
+
+        <ol>
+            <li>No console do RDS, clique em <strong>Editor de consultas</strong> (<em>Query Editor</em>) no menu lateral.</li>
+            <li>Conecte-se ao banco de dados com as credenciais administrativas:
+                <ul>
+                    <li><strong>Instância do banco de dados ou cluster:</strong> <code>supplierdb</code></li>
+                    <li><strong>Credenciais:</strong> Selecione <em>Adicionar novas credenciais do banco de dados</em>.</li>
+                    <li><strong>Nome de usuário:</strong> <code>admin</code></li>
+                    <li><strong>Senha:</strong> <code>coffee_beans_for_all</code></li>
+                    <li><strong>Nome do banco de dados:</strong> <code>suppliers</code></li>
+                </ul>
+                Clique em <strong>Conectar-se ao banco de dados</strong>.
+            </li>
+            <li>Execute o script DDL para criar o usuário da aplicação, a base de dados e a tabela <code>suppliers</code>:
+                <pre><code>CREATE USER "nodeapp" IDENTIFIED WITH mysql_native_password BY "coffee";
+CREATE DATABASE COFFEE;
+USE COFFEE;
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, RELOAD, PROCESS, REFERENCES, INDEX, ALTER, SHOW DATABASES, CREATE TEMPORARY TABLES, LOCK TABLES, EXECUTE, REPLICATION SLAVE, REPLICATION CLIENT, CREATE VIEW, SHOW VIEW, CREATE ROUTINE, ALTER ROUTINE, CREATE USER, EVENT, TRIGGER ON *.* TO 'nodeapp'@'%' WITH GRANT OPTION;
+CREATE TABLE suppliers(
+id INT NOT NULL AUTO_INCREMENT,
+name VARCHAR(255) NOT NULL,
+address VARCHAR(255) NOT NULL,
+city VARCHAR(255) NOT NULL,
+state VARCHAR(255) NOT NULL,
+email VARCHAR(255) NOT NULL,
+phone VARCHAR(100) NOT NULL,
+PRIMARY KEY ( id ));</code></pre>
+                Clique em <strong>Executar</strong> (<em>Run</em>).
+            </li>
+            <li>Verifique se a tabela foi criada vazia:
+                <pre><code>use COFFEE;
+select * from suppliers;</code></pre>
+            </li>
+            <li>Retorne à aba do navegador do aplicativo web (porta 8000) e recarregue a página. A tabela de fornecedores vazia será exibida juntamente com o botão <strong>Add a new supplier</strong>. Cadastre um registro de teste e comprove sua inserção executando novamente o <code>select * from suppliers;</code> no Query Editor.</li>
+        </ol>
+
+        <hr>
+
+        <h3>Tarefa 7: Alimentar o Banco de Dados com Dados de Fornecedores e Grãos</h3>
+        <p>Para carregar a base de dados de fornecedores completa e a tabela de grãos (<code>beans</code>), você utilizará o utilitário de linha de comando do cliente MySQL conectando diretamente ao cluster Aurora Serverless a partir do terminal do VS Code IDE.</p>
+
+        <ol>
+            <li>No terminal Bash do VS Code, conecte-se ao Aurora Serverless via CLI MySQL:
+                <pre><code>mysql -h &lt;db-endpoint&gt; -P 3306 -u admin -p</code></pre>
+                <p>Informe a senha mestre: <code>coffee_beans_for_all</code></p>
+            </li>
+            <li>Importe o script SQL completo fornecido no pacote de recursos:
+                <pre><code>source /home/ec2-user/environment/resources/coffee_db_dump.sql;</code></pre>
+            </li>
+            <li>Valide as tabelas importadas no banco <code>COFFEE</code>:
+                <pre><code>use COFFEE;
+select * from suppliers;</code></pre>
+                <p>A saída exibirá os 8 fornecedores corporativos cadastrados (ex: <em>AnyCompany coffee suppliers</em>, <em>Central Example Corp. coffee</em>, etc.).</p>
+                <pre><code>select * from beans;</code></pre>
+                <p>A consulta retornará 14 variedades de grãos de café com suas respectivas espécies (Arabica, Robusta, Liberica, Excelsa), estoques e preços.</p>
+            </li>
+            <li>Digite <code>exit</code> para sair do console interativo do MySQL.</li>
+            <li>Recarregue o aplicativo web na porta 8000 para confirmar a exibição visual imediata dos 8 fornecedores cadastrados.</li>
+        </ol>
+
+        <hr>
+
+        <h3>Tarefa 8: Analisar a Política e o Perfil de Instância IAM para o Elastic Beanstalk</h3>
+        <p>O Elastic Beanstalk criará instâncias EC2 sob demanda para rodar o Docker. Para que essas instâncias consigam autenticar no Amazon ECR e baixar a imagem privada <code>cafe/node-web-app</code>, elas precisam de permissões explícitas no IAM atribuídas via Instance Profile.</p>
+
+        <ol>
+            <li>No console da AWS, acesse o <strong>IAM</strong> &gt; <strong>Políticas</strong>.</li>
+            <li>Pesquise por <code>aws-elasticbeanstalk-ec2-instance-policy</code> e analise as declarações JSON:
+                <pre><code>{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+"Sid": "AllowEbAuth",
+"Effect": "Allow",
+"Action": [
+    "ecr:GetAuthorizationToken"
+],
+"Resource": "*"
+        },
+        {
+"Sid": "AllowPull",
+"Effect": "Allow",
+"Action": [
+    "ecr:GetDownloadUrlForLayer",
+    "ecr:BatchGetImage",
+    "ecr:BatchCheckLayerAvailability"
+],
+"Resource": "*"
+        },
+        {
+"Effect": "Allow",
+"Action": [
+    "elasticbeanstalk:Put*"
+],
+"Resource": "*"
+        }
+    ]
+}</code></pre>
+                <ul>
+                    <li><code>AllowEbAuth</code>: Permite que o daemon do Docker obtenha tokens temporários de autenticação no ECR.</li>
+                    <li><code>AllowPull</code>: Permite baixar as camadas (layers) e manifestos da imagem conteinerizada.</li>
+                    <li><code>elasticbeanstalk:Put*</code>: Permite que a instância reporte status de saúde e métricas para o serviço Beanstalk.</li>
+                </ul>
+            </li>
+            <li>Em <strong>Perfis (Roles)</strong>, verifique o perfil <code>aws-elasticbeanstalk-ec2-role</code>:
+                <p>Sua relação de confiança especifica o serviço <code>ec2.amazonaws.com</code>, e a política examinada acima está devidamente anexada a ele.</p>
+            </li>
+        </ol>
+
+        <hr>
+
+        <h3>Tarefa 9: Criar a Aplicação e o Ambiente no AWS Elastic Beanstalk</h3>
+        <p>Nesta etapa, você criará a aplicação e o ambiente Elastic Beanstalk via AWS CLI e implantará a aplicação de fornecedores em contêiner Docker usando um arquivo de manifesto <code>Dockerrun.aws.json</code>.</p>
+
+        <ol>
+            <li>No terminal do VS Code, prepare o diretório da aplicação e crie a aplicação Beanstalk:
+                <pre><code>cd ~/environment
+mkdir bean && cd bean
+aws elasticbeanstalk create-application --application-name MyNodeApp</code></pre>
+            </li>
+            <li>Crie o arquivo de configurações do ambiente <code>options.txt</code> dentro de <code>~/environment/bean</code>:
+                <pre><code>[
+  {
+    "Namespace": "aws:autoscaling:launchconfiguration",
+    "OptionName": "IamInstanceProfile",
+    "Value": "aws-elasticbeanstalk-ec2-role"
+  },
+  {
+    "Namespace": "aws:autoscaling:launchconfiguration",
+    "OptionName": "SecurityGroups",
+    "Value": "&lt;FMI_1&gt;"
+  },
+  {
+    "Namespace": "aws:ec2:vpc",
+    "OptionName": "VPCId",
+    "Value": "&lt;FMI_2&gt;"
+  },
+  {
+    "Namespace": "aws:ec2:vpc",
+    "OptionName": "Subnets",
+    "Value": "&lt;FMI_3&gt;,&lt;FMI_4&gt;"
+  },
+  {
+    "Namespace": "aws:elasticbeanstalk:application:environment",
+    "OptionName": "APP_DB_HOST",
+    "Value": "&lt;FMI_5&gt;"
+  }
+]</code></pre>
+                <p>Substitua os placeholders pelos valores coletados:</p>
+                <ul>
+                    <li><code>&lt;FMI_1&gt;</code>: <code>IDE security group ID</code></li>
+                    <li><code>&lt;FMI_2&gt;</code>: <code>IDE VPC ID</code></li>
+                    <li><code>&lt;FMI_3&gt;,&lt;FMI_4&gt;</code>: <code>IDE subnet ID,extraSubnetForRds subnet ID</code> (separados por vírgula sem espaços)</li>
+                    <li><code>&lt;FMI_5&gt;</code>: <code>Database endpoint</code></li>
+                </ul>
+            </li>
+            <li>Identifique a Solution Stack mais recente do Docker no Amazon Linux 2:
+                <pre><code>aws elasticbeanstalk list-available-solution-stacks | grep 'running Docker'</code></pre>
+                <p>Exemplo de pilha retornada: <code>64bit Amazon Linux 2 v4.0.5 running Docker</code></p>
+            </li>
+            <li>Inicie o ambiente Elastic Beanstalk executando:
+                <pre><code>aws elasticbeanstalk create-environment   --application-name MyNodeApp   --environment-name MyEnv   --solution-stack-name "64bit Amazon Linux 2 v4.0.5 running Docker"   --region us-east-1   --option-settings file://options.txt</code></pre>
+            </li>
+            <li>Acompanhe a criação do ambiente no console do <strong>AWS Elastic Beanstalk</strong>. Aguarde até que o status de saúde passe de <em>Pendente/Cinza</em> para <strong>Ok (Verde)</strong>.</li>
+            <li>Abra a URL do domínio gerado (<code>MyEnv.eba-xxxxxxx.us-east-1.elasticbeanstalk.com</code>) para visualizar a aplicação de exemplo padrão do Elastic Beanstalk em execução.</li>
+            <li>Agora, atualize o ambiente com o código do aplicativo de fornecedores criando o manifesto <code>Dockerrun.aws.json</code> (versão 1 para contêiner único):
+                <pre><code>{
+  "AWSEBDockerrunVersion": "1",
+  "Image": {
+    "Name": "&lt;Repository-URI&gt;",
+    "Update": "true"
+  },
+  "Ports": [
+    {
+      "ContainerPort": 3000
+    }
+  ]
+}</code></pre>
+                <p><em>Nota Arquitetural:</em> O Elastic Beanstalk recebe tráfego na porta padrão 80 (via proxy Nginx ou Load Balancer) e faz proxy reverso automaticamente para a porta declarada em <code>ContainerPort</code> (porta 3000 da aplicação Node.js).</p>
+            </li>
+            <li>No console do Elastic Beanstalk, no ambiente <code>MyEnv</code>:
+                <ul>
+                    <li>Clique no botão <strong>Fazer upload e implantar</strong> (<em>Upload and deploy</em>).</li>
+                    <li>Selecione o arquivo <code>Dockerrun.aws.json</code>.</li>
+                    <li>Em <strong>Rótulo de versão</strong> (<em>Version label</em>), insira <code>MyNodeApp-version-1a</code>.</li>
+                    <li>Clique em <strong>Implantar</strong>.</li>
+                </ul>
+            </li>
+            <li>Após a conclusão da implantação, teste os seguintes endpoints no navegador:
+                <ul>
+                    <li><code>http://&lt;elastic-beanstalk-url&gt;/suppliers</code> &rarr; Lista HTML dos fornecedores.</li>
+                    <li><code>http://&lt;elastic-beanstalk-url&gt;/beans</code> &rarr; Lista HTML do inventário de grãos.</li>
+                    <li><code>http://&lt;elastic-beanstalk-url&gt;/beans.json</code> &rarr; <strong>Objeto JSON estruturado</strong> contendo todas as 14 variedades de café. Guarde esta URL!</li>
+                </ul>
+            </li>
+        </ol>
+
+        <hr>
+
+        <h3>Tarefa 10: Configurar o Proxy do Amazon API Gateway e Integrar ao Frontend S3</h3>
+        <p>O site voltado aos clientes da cafeteria (hospedado no S3) possui a seção <strong>Buy Coffee</strong>, que atualmente exibe uma mensagem estática de "em breve". Você configurará um novo recurso no API Gateway que utilizará o recurso <strong>HTTP Proxy Integration</strong> para repassar as chamadas diretamente ao endpoint <code>/beans.json</code> do Elastic Beanstalk.</p>
+
+        <ol>
+            <li>No console da AWS, navegue até o <strong>API Gateway</strong> e selecione a API <code>ProductsApi</code>.</li>
+            <li>Selecione o recurso raiz <code>/</code> e clique em <strong>Criar recurso</strong>:
+                <ul>
+                    <li><strong>Nome do recurso:</strong> <code>bean_products</code></li>
+                    <li><strong>CORS:</strong> Marque a caixa <strong>Compartilhamento de recursos de origem cruzada (CORS)</strong>.</li>
+                </ul>
+                Clique em <strong>Criar recurso</strong>.
+            </li>
+            <li>Com o recurso <code>/bean_products</code> selecionado, clique em <strong>Criar método</strong>:
+                <ul>
+                    <li><strong>Tipo de método:</strong> <code>GET</code></li>
+                    <li><strong>Tipo de integração:</strong> <code>HTTP</code></li>
+                    <li><strong>Integração do proxy HTTP:</strong> Ative a chave (<em>HTTP Proxy Integration: ON</em>).</li>
+                    <li><strong>Método HTTP:</strong> <code>GET</code></li>
+                    <li><strong>URL do endpoint:</strong> <code>http://&lt;elastic-beanstalk-url&gt;/beans.json</code></li>
+                </ul>
+                Clique em <strong>Criar método</strong>.
+            </li>
+            <li>Selecione a aba <strong>Teste</strong> e clique em <strong>Teste</strong>. O console exibirá o código de status HTTP 200 e o payload JSON dos grãos retornado pelo Elastic Beanstalk.</li>
+            <li>Implante a API:
+                <ul>
+                    <li>Selecione o recurso raiz <code>/</code> &gt; clique em <strong>Implantar API</strong>.</li>
+                    <li><strong>Estágio de implantação:</strong> Selecione <code>prod</code> e clique em <strong>Implantar</strong>.</li>
+                </ul>
+            </li>
+            <li>Valide no Site da Cafeteria:
+                <ul>
+                    <li>Abra a URL do site da cafeteria hospedado no S3 (<code>WebsiteURL</code>).</li>
+                    <li>No menu superior, clique em <strong>Buy Coffee</strong>.</li>
+                    <li>A página agora consome a API REST via JavaScript em tempo real, renderizando as variedades de grãos de café, descrições, preços e estoques diretamente da base relacional Aurora Serverless!</li>
+                </ul>
+            </li>
+        </ol>
+
+        <hr>
+
+        <h3>Conclusão do Laboratório e Atualização da Cafeteria</h3>
+        <p>Parabéns! Você concluiu com sucesso a modernização completa da aplicação de fornecedores e sua integração ao ecossistema da cafeteria:</p>
+
+        <div class="callout-dica">
+            <strong>Síntese da Arquitetura Entregue:</strong><br>
+            • <strong>Desacoplamento e Alta Disponibilidade:</strong> A aplicação agora opera em uma infraestrutura Multi-AZ com VPC configurada para expansão futura.<br>
+            • <strong>Elastic Beanstalk PaaS:</strong> O Elastic Beanstalk cuida do provisionamento do EC2, Auto Scaling, Classic Load Balancer, monitoramento contínuo de saúde e deploy conteinerizado via <code>Dockerrun.aws.json</code>.<br>
+            • <strong>Aurora Serverless v2:</strong> O banco de dados relacional escala capacidade automaticamente de 2 a 16 ACUs sem interrupção de serviço e reduz o consumo durante a noite, gerando enorme economia financeira para a cafeteria.<br>
+            • <strong>API Gateway como Fachada:</strong> O frontend estático no S3 conecta-se de forma limpa e segura à infraestrutura de backend via chamadas REST padronizadas com CORS habilitado.<br>
+            • <strong>Próximo Passo:</strong> Nos próximos módulos, você aprenderá a automatizar completamente esse ciclo de compilação, testes e entrega utilizando pipelines de CI/CD (AWS CodePipeline, CodeBuild e CodeDeploy).
+        </div>
+    </div>
+</section>
