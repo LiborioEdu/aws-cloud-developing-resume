@@ -34,7 +34,7 @@ MODULE_TITLES = {
     7: "7. Developing Event-Driven Serverless Solutions",
     8: "8. Introducing Containers and Container Services",
     9: "9. Caching Information for Scalability",
-    10: "10. Developing with Messaging Service",
+    10: "10. Developing with Messaging Services",
     11: "11. Defining Workflows to Orchestrate Functions",
     12: "12. Developing Secure Applications on AWS",
     13: "13. Automating Deployment Using CI/CD Pipelines",
