@@ -221,13 +221,13 @@
     <h3>Estrutura de Resposta de Credenciais Temporárias do STS</h3>
     <pre><code>{
   "Credentials": {
-    "AccessKeyId": "ASIAIOSFODNN7EXAMPLE",
-    "SecretAccessKey": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
-    "SessionToken": "AQoDYXdzEJr1...<token longo de sessão>...EXAMPLE==",
+    "AccessKeyId": "ASIA_EXEMPLO_CHAVE_TEMPORARIA_STS",
+    "SecretAccessKey": "CHAVE_SECRETA_TEMPORARIA_EXEMPLO_STS_NAO_REAL",
+    "SessionToken": "AQoDYXdzEJr1...<token_longo_de_sessao_exemplo>...==",
     "Expiration": "2026-10-26T18:30:00Z"
   },
   "AssumedRoleUser": {
-    "AssumedRoleId": "AROA3XNWBMIARRSTSEXAMPLE:b@example.com",
+    "AssumedRoleId": "AROA_EXEMPLO_ROLE_ID:b@example.com",
     "Arn": "arn:aws:sts::123456789012:assumed-role/CafeteriaStaffRole/b@example.com"
   }
 }</code></pre>
@@ -286,7 +286,7 @@
   "eventVersion": "1.08",
   "userIdentity": {
     "type": "AssumedRole",
-    "principalId": "AROA3XNWBMIARRSTSEXAMPLE:b@example.com",
+    "principalId": "AROA_EXEMPLO_ROLE_ID:b@example.com",
     "arn": "arn:aws:sts::123456789012:assumed-role/CafeteriaStaffRole/b@example.com",
     "accountId": "123456789012",
     "userName": "b@example.com"
