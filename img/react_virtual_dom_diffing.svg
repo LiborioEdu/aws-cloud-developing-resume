@@ -1,0 +1,143 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 480" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#14181f"/>
+      <stop offset="100%" stop-color="#1a202c"/>
+    </linearGradient>
+    <linearGradient id="reactCyan" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#61dafb"/>
+      <stop offset="100%" stop-color="#00d8ff"/>
+    </linearGradient>
+    <linearGradient id="orangeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ff9900"/>
+      <stop offset="100%" stop-color="#ffb84d"/>
+    </linearGradient>
+    <linearGradient id="greenGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#2ecc71"/>
+      <stop offset="100%" stop-color="#27ae60"/>
+    </linearGradient>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000000" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+
+  <!-- Background Canvas -->
+  <rect width="960" height="480" rx="14" fill="url(#bgGrad)" stroke="#2d3748" stroke-width="1.5"/>
+
+  <!-- Header Title -->
+  <text x="480" y="44" text-anchor="middle" font-family="'Inter', -apple-system, sans-serif" font-size="20" font-weight="700" fill="#ffffff" letter-spacing="0.5">
+    O Mecanismo de Reconciliação do React: Virtual DOM vs. Real DOM
+  </text>
+  <text x="480" y="70" text-anchor="middle" font-family="'Fira Code', monospace" font-size="12" font-weight="500" fill="#61dafb">
+    Estado Altera &rarr; Snapshot Virtual &rarr; Algoritmo de Diffing &rarr; Patch Cirúrgico no DOM Real
+  </text>
+
+  <!-- 1. Estado / Gatilho -->
+  <g transform="translate(40, 110)" filter="url(#shadow)">
+    <rect width="180" height="290" rx="10" fill="#1e2430" stroke="#ff9900" stroke-width="1.5" stroke-dasharray="4 4"/>
+    <rect width="180" height="38" rx="10" fill="rgba(255, 153, 0, 0.15)"/>
+    <text x="90" y="25" text-anchor="middle" font-family="'Inter', sans-serif" font-size="13" font-weight="700" fill="#ffb84d">1. Alteração de Estado</text>
+
+    <!-- State box inside -->
+    <rect x="20" y="60" width="140" height="60" rx="8" fill="#141820" stroke="#ff9900" stroke-width="1"/>
+    <text x="90" y="85" text-anchor="middle" font-family="'Fira Code', monospace" font-size="11" font-weight="600" fill="#ffb84d">setContador(5)</text>
+    <text x="90" y="105" text-anchor="middle" font-family="'Inter', sans-serif" font-size="10" fill="rgba(255,255,255,0.6)">Clique do Usuário</text>
+
+    <path d="M 90 135 L 90 170" stroke="#ff9900" stroke-width="2" stroke-linecap="round"/>
+    <polygon points="86,168 90,178 94,168" fill="#ff9900"/>
+
+    <rect x="20" y="185" width="140" height="85" rx="8" fill="#141820" stroke="#4a5568" stroke-width="1"/>
+    <text x="90" y="208" text-anchor="middle" font-family="'Inter', sans-serif" font-size="11" font-weight="600" fill="#e2e8f0">Disparo de Render</text>
+    <text x="90" y="228" text-anchor="middle" font-family="'Inter', sans-serif" font-size="9.5" fill="rgba(255,255,255,0.55)">React executa a função</text>
+    <text x="90" y="244" text-anchor="middle" font-family="'Inter', sans-serif" font-size="9.5" fill="rgba(255,255,255,0.55)">do componente em</text>
+    <text x="90" y="260" text-anchor="middle" font-family="'Fira Code', monospace" font-size="9.5" fill="#61dafb">memória JavaScript</text>
+  </g>
+
+  <!-- Arrow 1 to 2 -->
+  <path d="M 230 255 L 265 255" stroke="#61dafb" stroke-width="2" stroke-linecap="round"/>
+  <polygon points="263,250 275,255 263,260" fill="#61dafb"/>
+
+  <!-- 2. Virtual DOM (Memória) -->
+  <g transform="translate(285, 110)" filter="url(#shadow)">
+    <rect width="360" height="290" rx="10" fill="#1a2230" stroke="#61dafb" stroke-width="1.8"/>
+    <rect width="360" height="38" rx="10" fill="rgba(97, 218, 251, 0.15)"/>
+    <text x="180" y="25" text-anchor="middle" font-family="'Inter', sans-serif" font-size="13" font-weight="700" fill="#61dafb">2. Virtual DOM (Memória JS - Ultrarrápido)</text>
+
+    <!-- Previous VDOM Tree -->
+    <g transform="translate(20, 55)">
+      <rect width="145" height="150" rx="6" fill="#141824" stroke="#4a5568" stroke-width="1"/>
+      <text x="72" y="22" text-anchor="middle" font-family="'Inter', sans-serif" font-size="11" font-weight="600" fill="#a0aec0">VDOM Anterior</text>
+      <!-- Tree Nodes -->
+      <circle cx="72" cy="48" r="12" fill="#2d3748" stroke="#a0aec0" stroke-width="1.5"/>
+      <text x="72" y="52" text-anchor="middle" font-size="9" fill="#fff" font-family="monospace">&lt;App&gt;</text>
+
+      <line x1="62" y1="58" x2="42" y2="82" stroke="#4a5568" stroke-width="1.5"/>
+      <line x1="82" y1="58" x2="102" y2="82" stroke="#4a5568" stroke-width="1.5"/>
+
+      <circle cx="42" cy="92" r="11" fill="#2d3748" stroke="#a0aec0" stroke-width="1.2"/>
+      <text x="42" y="96" text-anchor="middle" font-size="8" fill="#fff" font-family="monospace">&lt;h1&gt;</text>
+
+      <circle cx="102" cy="92" r="11" fill="#2d3748" stroke="#a0aec0" stroke-width="1.2"/>
+      <text x="102" y="95" text-anchor="middle" font-size="8" fill="#fff" font-family="monospace">count:4</text>
+      <text x="72" y="132" text-anchor="middle" font-family="'Inter', sans-serif" font-size="9.5" fill="#718096">Estado = 4</text>
+    </g>
+
+    <!-- New VDOM Tree -->
+    <g transform="translate(195, 55)">
+      <rect width="145" height="150" rx="6" fill="#141824" stroke="#61dafb" stroke-width="1.2"/>
+      <text x="72" y="22" text-anchor="middle" font-family="'Inter', sans-serif" font-size="11" font-weight="600" fill="#61dafb">Novo VDOM</text>
+      <!-- Tree Nodes -->
+      <circle cx="72" cy="48" r="12" fill="#1e2c3a" stroke="#61dafb" stroke-width="1.5"/>
+      <text x="72" y="52" text-anchor="middle" font-size="9" fill="#fff" font-family="monospace">&lt;App&gt;</text>
+
+      <line x1="62" y1="58" x2="42" y2="82" stroke="#61dafb" stroke-width="1.5"/>
+      <line x1="82" y1="58" x2="102" y2="82" stroke="#ff9900" stroke-width="1.5"/>
+
+      <circle cx="42" cy="92" r="11" fill="#1e2c3a" stroke="#a0aec0" stroke-width="1.2"/>
+      <text x="42" y="96" text-anchor="middle" font-size="8" fill="#fff" font-family="monospace">&lt;h1&gt;</text>
+
+      <!-- Highlighted changed node -->
+      <circle cx="102" cy="92" r="12" fill="#ff9900" stroke="#ffd280" stroke-width="1.8"/>
+      <text x="102" y="95" text-anchor="middle" font-size="8" fill="#1a202c" font-weight="bold" font-family="monospace">count:5</text>
+      <text x="72" y="132" text-anchor="middle" font-family="'Inter', sans-serif" font-size="9.5" font-weight="600" fill="#ffb84d">Estado = 5 (Mudou!)</text>
+    </g>
+
+    <!-- Diffing Box Bottom -->
+    <rect x="20" y="218" width="320" height="56" rx="6" fill="#111620" stroke="#3182ce" stroke-width="1"/>
+    <text x="180" y="238" text-anchor="middle" font-family="'Inter', sans-serif" font-size="11" font-weight="600" fill="#63b3ed">Algoritmo de Diffing (Reconciliação)</text>
+    <text x="180" y="258" text-anchor="middle" font-family="'Inter', sans-serif" font-size="9.5" fill="rgba(255,255,255,0.7)">Detecta que apenas o texto do nó "count" mudou (1 operação)</text>
+  </g>
+
+  <!-- Arrow 2 to 3 -->
+  <path d="M 655 255 L 690 255" stroke="#2ecc71" stroke-width="2" stroke-linecap="round"/>
+  <polygon points="688,250 700,255 688,260" fill="#2ecc71"/>
+
+  <!-- 3. Real DOM (Navegador) -->
+  <g transform="translate(710, 110)" filter="url(#shadow)">
+    <rect width="210" height="290" rx="10" fill="#18231d" stroke="#2ecc71" stroke-width="1.8"/>
+    <rect width="210" height="38" rx="10" fill="rgba(46, 204, 113, 0.15)"/>
+    <text x="105" y="25" text-anchor="middle" font-family="'Inter', sans-serif" font-size="13" font-weight="700" fill="#2ecc71">3. DOM Real (Navegador)</text>
+
+    <!-- Browser Window Card -->
+    <rect x="15" y="55" width="180" height="150" rx="8" fill="#111814" stroke="#276749" stroke-width="1"/>
+    <circle cx="30" cy="70" r="4" fill="#e53e3e"/>
+    <circle cx="42" cy="70" r="4" fill="#dd6b20"/>
+    <circle cx="54" cy="70" r="4" fill="#38a169"/>
+    <rect x="70" y="66" width="110" height="8" rx="4" fill="#2d3748"/>
+
+    <!-- DOM Elements -->
+    <rect x="25" y="90" width="160" height="24" rx="4" fill="#1c2b21" stroke="#2d3748" stroke-width="0.8"/>
+    <text x="35" y="106" font-family="monospace" font-size="9.5" fill="#a0aec0">&lt;h1&gt;Meu App&lt;/h1&gt;</text>
+
+    <rect x="25" y="122" width="160" height="28" rx="4" fill="rgba(46, 204, 113, 0.2)" stroke="#2ecc71" stroke-width="1.4"/>
+    <text x="35" y="140" font-family="monospace" font-size="10" font-weight="bold" fill="#48bb78">&lt;p&gt;Contador: 5&lt;/p&gt;</text>
+
+    <rect x="25" y="158" width="160" height="24" rx="4" fill="#1c2b21" stroke="#2d3748" stroke-width="0.8"/>
+    <text x="35" y="174" font-family="monospace" font-size="9.5" fill="#a0aec0">&lt;button&gt;+1&lt;/button&gt;</text>
+
+    <!-- Patch Result -->
+    <rect x="15" y="218" width="180" height="56" rx="6" fill="#101a14" stroke="#2ecc71" stroke-width="1"/>
+    <text x="105" y="238" text-anchor="middle" font-family="'Inter', sans-serif" font-size="10.5" font-weight="700" fill="#48bb78">Atualização Cirúrgica</text>
+    <text x="105" y="256" text-anchor="middle" font-family="'Inter', sans-serif" font-size="9.2" fill="rgba(255,255,255,0.7)">Sem recarregar a tela (60 FPS)</text>
+  </g>
+</svg>

@@ -1,7 +1,7 @@
 /**
- * Jihad - Hub de Resumos & AWS Academy Cloud Developing
+ * Jihad - Hub de Resumos (AWS Academy Cloud Developing & React Frontend)
  * Gerencia a Página Inicial do Hub (retângulos de trilhas), a Barra Superior,
- * o carregamento dinâmico por módulo e a navegação lateral retrátil.
+ * o carregamento dinâmico por módulo, suporte a múltiplas trilhas e navegação lateral retrátil.
  */
 (function () {
     if (window.__AWS_APP_LOADED__) return;
@@ -14,17 +14,47 @@
         var brandHomeLink = document.getElementById('brand-home-link');
         var topbarCmdPath = document.getElementById('topbar-cmd-path');
         var cardAwsCloud = document.getElementById('card-aws-cloud');
+        var cardReact = document.getElementById('card-react');
+
+        var sidebarAws = document.getElementById('sidebar-aws');
+        var sidebarReact = document.getElementById('sidebar-react');
+        var termPrompt = document.getElementById('term-prompt');
 
         var contentContainer = document.getElementById('MainContentScroll');
         var moduleContainer = document.getElementById('module-container');
         var moduleBadge = document.getElementById('active-module-badge');
         var currentModuleId = null;
 
-        var MODULE_ORDER = [
-            'modulo-1', 'modulo-2', 'modulo-3', 'modulo-4', 'modulo-5',
-            'modulo-6', 'modulo-7', 'modulo-8', 'modulo-9', 'modulo-10',
-            'modulo-11', 'modulo-12', 'modulo-13'
-        ];
+        var TRACKS = {
+            aws: {
+                name: 'AWS Cloud Developing',
+                cmdPrefix: '~/jihad/aws-cloud-dev/',
+                termPrompt: 'aws@student:~$ <span>iniciando ambiente modular de resumos... pronto.</span>',
+                badgeClass: 'active-module-badge',
+                defaultModule: 'modulo-1',
+                modules: [
+                    'modulo-1', 'modulo-2', 'modulo-3', 'modulo-4', 'modulo-5',
+                    'modulo-6', 'modulo-7', 'modulo-8', 'modulo-9', 'modulo-10',
+                    'modulo-11', 'modulo-12', 'modulo-13'
+                ]
+            },
+            react: {
+                name: 'React Frontend',
+                cmdPrefix: '~/jihad/react-dev/',
+                termPrompt: 'react@dev:~$ <span>iniciando ambiente Vite/React... pronto.</span>',
+                badgeClass: 'active-module-badge badge-react',
+                defaultModule: 'react-modulo-1',
+                modules: [
+                    'react-modulo-1'
+                ]
+            }
+        };
+
+        function getTrackForModule(moduleId) {
+            if (!moduleId) return 'aws';
+            if (moduleId.indexOf('react') === 0) return 'react';
+            return 'aws';
+        }
 
         /**
          * Garante que TODOS os arrows na lateral esquerda iniciem minimizados.
@@ -55,25 +85,50 @@
         }
 
         /**
-         * Alterna para a visualização do resumo AWS Cloud Developing
+         * Alterna para a visualização do curso selecionado (AWS ou React)
          */
         function showCourseView(moduleId, targetAnchor, updateUrl) {
+            var trackKey = getTrackForModule(moduleId);
+            var trackConfig = TRACKS[trackKey];
+
             if (hubView) hubView.classList.add('hidden');
             if (courseView) courseView.classList.remove('hidden');
             if (btnBackHub) btnBackHub.classList.add('visible');
-            document.title = 'Jihad — AWS Cloud Developing';
 
-            return loadModule(moduleId || 'modulo-1', targetAnchor || '#modulo-1', updateUrl);
+            if (sidebarAws) {
+                sidebarAws.style.display = (trackKey === 'aws') ? 'flex' : 'none';
+            }
+            if (sidebarReact) {
+                sidebarReact.style.display = (trackKey === 'react') ? 'flex' : 'none';
+            }
+
+            if (termPrompt) {
+                termPrompt.innerHTML = trackConfig.termPrompt;
+            }
+
+            document.title = 'Jihad — ' + trackConfig.name;
+
+            var targetMod = moduleId || trackConfig.defaultModule;
+            var targetAnc = targetAnchor || ('#' + targetMod);
+            return loadModule(targetMod, targetAnc, updateUrl);
         }
 
         /**
-         * Descobre a qual módulo pertence um determinado hash (ex: #mod8-lab2 -> modulo-8)
+         * Descobre a qual módulo pertence um determinado hash
          */
         function resolveModuleFromHash(hash) {
             if (!hash) return null;
             var cleanHash = hash.replace(/^#/, '');
             if (!cleanHash || cleanHash === 'hub') return null;
             if (cleanHash === 'aws') return 'modulo-1';
+            if (cleanHash === 'react') return 'react-modulo-1';
+
+            if (/^react-modulo-\d+$/.test(cleanHash)) {
+                return cleanHash;
+            }
+            if (cleanHash.indexOf('react') === 0) {
+                return 'react-modulo-1';
+            }
 
             if (/^modulo-\d+$/.test(cleanHash)) {
                 return cleanHash;
@@ -112,9 +167,18 @@
          */
         function fetchModuleHtml(moduleId) {
             var modInfo = getModuleEntry(moduleId);
-            var numStr = moduleId.replace('modulo-', '');
-            if (numStr.length === 1) numStr = '0' + numStr;
-            var filePath = (modInfo && modInfo.file) ? modInfo.file : ('modules/modulo-' + numStr + '.html');
+            var filePath;
+            if (modInfo && modInfo.file) {
+                filePath = modInfo.file;
+            } else if (moduleId.indexOf('react-modulo-') === 0) {
+                var rNum = moduleId.replace('react-modulo-', '');
+                if (rNum.length === 1) rNum = '0' + rNum;
+                filePath = 'modules/react-modulo-' + rNum + '.html';
+            } else {
+                var numStr = moduleId.replace('modulo-', '');
+                if (numStr.length === 1) numStr = '0' + numStr;
+                filePath = 'modules/modulo-' + numStr + '.html';
+            }
 
             if (window.location.protocol === 'file:' && modInfo && modInfo.html) {
                 return Promise.resolve(modInfo.html);
@@ -137,11 +201,13 @@
          * Constrói os botões de navegação (Módulo Anterior / Próximo Módulo) no rodapé
          */
         function buildFooterNavigation(moduleId) {
-            var idx = MODULE_ORDER.indexOf(moduleId);
+            var trackKey = getTrackForModule(moduleId);
+            var moduleList = TRACKS[trackKey].modules;
+            var idx = moduleList.indexOf(moduleId);
             if (idx === -1) return '';
 
-            var prevId = idx > 0 ? MODULE_ORDER[idx - 1] : null;
-            var nextId = idx < MODULE_ORDER.length - 1 ? MODULE_ORDER[idx + 1] : null;
+            var prevId = idx > 0 ? moduleList[idx - 1] : null;
+            var nextId = idx < moduleList.length - 1 ? moduleList[idx + 1] : null;
 
             var prevEntry = prevId ? getModuleEntry(prevId) : null;
             var nextEntry = nextId ? getModuleEntry(nextId) : null;
@@ -172,6 +238,16 @@
          * Atualiza o estado visual de destaque na barra lateral e no breadcrumb da Top Bar
          */
         function updateSidebarHighlight(moduleId, activeAnchor) {
+            var trackKey = getTrackForModule(moduleId);
+            var trackConfig = TRACKS[trackKey];
+
+            if (sidebarAws) {
+                sidebarAws.style.display = (trackKey === 'aws') ? 'flex' : 'none';
+            }
+            if (sidebarReact) {
+                sidebarReact.style.display = (trackKey === 'react') ? 'flex' : 'none';
+            }
+
             document.querySelectorAll('.sidebar > ul > li').forEach(function (li) {
                 if (li.getAttribute('data-module') === moduleId) {
                     li.classList.add('active-module');
@@ -191,9 +267,13 @@
             var entry = getModuleEntry(moduleId);
             if (moduleBadge && entry && entry.title) {
                 moduleBadge.textContent = entry.title;
+                moduleBadge.className = trackConfig.badgeClass;
             }
             if (topbarCmdPath && entry && entry.title) {
-                topbarCmdPath.textContent = '~/jihad/aws-cloud-dev/' + moduleId;
+                topbarCmdPath.textContent = trackConfig.cmdPrefix + moduleId;
+            }
+            if (termPrompt) {
+                termPrompt.innerHTML = trackConfig.termPrompt;
             }
         }
 
@@ -280,13 +360,21 @@
         }
 
         /**
-         * Eventos do Hub Jihad (Barra Superior + Retângulo AWS Cloud Developing)
+         * Eventos do Hub Jihad (Barra Superior + Cards das Trilhas)
          */
         if (cardAwsCloud) {
             cardAwsCloud.addEventListener('click', function (e) {
                 e.preventDefault();
                 collapseAllSidebarArrows();
                 showCourseView('modulo-1', '#modulo-1', true);
+            });
+        }
+
+        if (cardReact) {
+            cardReact.addEventListener('click', function (e) {
+                e.preventDefault();
+                collapseAllSidebarArrows();
+                showCourseView('react-modulo-1', '#react-modulo-1', true);
             });
         }
 
@@ -366,7 +454,7 @@
         });
 
         /**
-         * Cliques nos módulos sem sub-menu (ex: Módulos 10 a 13)
+         * Cliques nos módulos sem sub-menu
          */
         document.querySelectorAll('.sidebar > ul > li:not(.has-submenu)').forEach(function (li) {
             var link = li.querySelector(':scope > a');
@@ -381,8 +469,8 @@
 
         /**
          * Inicialização:
-         * - Se houver hash de módulo na URL (ex: #modulo-3), abre direto o módulo.
-         * - Caso contrário, inicia na Página Inicial do Hub Jihad (com os retângulos no centro).
+         * - Se houver hash de módulo na URL, abre direto a trilha e o módulo correspondente.
+         * - Caso contrário, inicia na Página Inicial do Hub Jihad.
          */
         var initialHash = window.location.hash;
         var initialModule = resolveModuleFromHash(initialHash);

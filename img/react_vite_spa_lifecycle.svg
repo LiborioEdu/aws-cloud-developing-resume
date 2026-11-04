@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 460" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGrad2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#141822"/>
+      <stop offset="100%" stop-color="#19202c"/>
+    </linearGradient>
+    <filter id="shadow2" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000000" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+
+  <!-- Background Canvas -->
+  <rect width="960" height="460" rx="14" fill="url(#bgGrad2)" stroke="#2d3748" stroke-width="1.5"/>
+
+  <!-- Title -->
+  <text x="480" y="42" text-anchor="middle" font-family="'Inter', -apple-system, sans-serif" font-size="20" font-weight="700" fill="#ffffff" letter-spacing="0.5">
+    Arquitetura de Inicialização: Vite + React SPA
+  </text>
+  <text x="480" y="68" text-anchor="middle" font-family="'Fira Code', monospace" font-size="12" font-weight="500" fill="#61dafb">
+    index.html (Casca SPA) &rarr; src/main.jsx (createRoot) &rarr; src/App.jsx (Componente Raiz)
+  </text>
+
+  <!-- Step 1: index.html -->
+  <g transform="translate(45, 105)" filter="url(#shadow2)">
+    <rect width="260" height="310" rx="10" fill="#1b212d" stroke="#e2e8f0" stroke-width="1.2"/>
+    <rect width="260" height="36" rx="10" fill="rgba(255, 255, 255, 0.08)"/>
+    <text x="130" y="24" text-anchor="middle" font-family="'Inter', sans-serif" font-size="13" font-weight="700" fill="#ffffff">1. index.html (Raiz)</text>
+
+    <rect x="15" y="50" width="230" height="240" rx="6" fill="#11151c" stroke="#2d3748" stroke-width="1"/>
+    
+    <text x="25" y="74" font-family="'Fira Code', monospace" font-size="10" fill="#e2e8f0">&lt;!doctype html&gt;</text>
+    <text x="25" y="92" font-family="'Fira Code', monospace" font-size="10" fill="#e2e8f0">&lt;html lang="pt-BR"&gt;</text>
+    <text x="35" y="110" font-family="'Fira Code', monospace" font-size="10" fill="#718096">&lt;head&gt;...&lt;/head&gt;</text>
+    <text x="35" y="128" font-family="'Fira Code', monospace" font-size="10" fill="#e2e8f0">&lt;body&gt;</text>
+
+    <!-- Highlighted Div Root -->
+    <rect x="30" y="140" width="200" height="36" rx="5" fill="rgba(97, 218, 251, 0.12)" stroke="#61dafb" stroke-width="1.2"/>
+    <text x="40" y="162" font-family="'Fira Code', monospace" font-size="10" font-weight="bold" fill="#61dafb">&lt;div id="root"&gt;&lt;/div&gt;</text>
+
+    <!-- Script Tag -->
+    <rect x="30" y="190" width="200" height="52" rx="5" fill="rgba(255, 153, 0, 0.1)" stroke="#ff9900" stroke-width="1"/>
+    <text x="38" y="208" font-family="'Fira Code', monospace" font-size="9" fill="#ffb84d">&lt;script type="module"</text>
+    <text x="46" y="226" font-family="'Fira Code', monospace" font-size="9" fill="#ffb84d">src="/src/main.jsx"&gt;</text>
+
+    <text x="35" y="260" font-family="'Fira Code', monospace" font-size="10" fill="#e2e8f0">&lt;/body&gt;</text>
+    <text x="25" y="278" font-family="'Fira Code', monospace" font-size="10" fill="#e2e8f0">&lt;/html&gt;</text>
+  </g>
+
+  <!-- Arrow 1 -> 2 -->
+  <path d="M 315 255 L 355 255" stroke="#ff9900" stroke-width="2.2" stroke-linecap="round"/>
+  <polygon points="353,250 365,255 353,260" fill="#ff9900"/>
+
+  <!-- Step 2: src/main.jsx -->
+  <g transform="translate(375, 105)" filter="url(#shadow2)">
+    <rect width="260" height="310" rx="10" fill="#1b212d" stroke="#61dafb" stroke-width="1.5"/>
+    <rect width="260" height="36" rx="10" fill="rgba(97, 218, 251, 0.15)"/>
+    <text x="130" y="24" text-anchor="middle" font-family="'Inter', sans-serif" font-size="13" font-weight="700" fill="#61dafb">2. src/main.jsx (Motor)</text>
+
+    <rect x="15" y="50" width="230" height="240" rx="6" fill="#11151c" stroke="#2d3748" stroke-width="1"/>
+    
+    <text x="25" y="74" font-family="'Fira Code', monospace" font-size="9.5" fill="#e2e8f0">import React from 'react'</text>
+    <text x="25" y="92" font-family="'Fira Code', monospace" font-size="9.5" fill="#61dafb">import ReactDOM</text>
+    <text x="45" y="108" font-family="'Fira Code', monospace" font-size="9" fill="#718096">from 'react-dom/client'</text>
+    <text x="25" y="128" font-family="'Fira Code', monospace" font-size="9.5" fill="#e2e8f0">import App from './App.jsx'</text>
+    
+    <!-- Code Highlight for createRoot -->
+    <rect x="22" y="142" width="216" height="88" rx="6" fill="rgba(46, 204, 113, 0.12)" stroke="#2ecc71" stroke-width="1.2"/>
+    <text x="28" y="160" font-family="'Fira Code', monospace" font-size="9.2" font-weight="bold" fill="#2ecc71">ReactDOM.createRoot(</text>
+    <text x="34" y="176" font-family="'Fira Code', monospace" font-size="8.8" fill="#a0aec0">document.getElementById('root')</text>
+    <text x="28" y="192" font-family="'Fira Code', monospace" font-size="9.2" font-weight="bold" fill="#2ecc71">).render(</text>
+    <text x="36" y="208" font-family="'Fira Code', monospace" font-size="9.2" fill="#ffd280">  &lt;React.StrictMode&gt;</text>
+    <text x="44" y="222" font-family="'Fira Code', monospace" font-size="9.5" font-weight="bold" fill="#61dafb">    &lt;App /&gt;</text>
+
+    <text x="25" y="250" font-family="'Fira Code', monospace" font-size="9" fill="#a0aec0">Injeta a interface</text>
+    <text x="25" y="268" font-family="'Fira Code', monospace" font-size="9" fill="#61dafb">na tag #root do HTML</text>
+  </g>
+
+  <!-- Arrow 2 -> 3 -->
+  <path d="M 645 255 L 685 255" stroke="#2ecc71" stroke-width="2.2" stroke-linecap="round"/>
+  <polygon points="683,250 695,255 683,260" fill="#2ecc71"/>
+
+  <!-- Step 3: src/App.jsx -->
+  <g transform="translate(705, 105)" filter="url(#shadow2)">
+    <rect width="210" height="310" rx="10" fill="#1b212d" stroke="#2ecc71" stroke-width="1.5"/>
+    <rect width="210" height="36" rx="10" fill="rgba(46, 204, 113, 0.15)"/>
+    <text x="105" y="24" text-anchor="middle" font-family="'Inter', sans-serif" font-size="13" font-weight="700" fill="#2ecc71">3. src/App.jsx (Raiz)</text>
+
+    <rect x="15" y="50" width="180" height="240" rx="6" fill="#11151c" stroke="#2d3748" stroke-width="1"/>
+    
+    <text x="25" y="74" font-family="'Fira Code', monospace" font-size="9.5" fill="#e2e8f0">function App() {</text>
+    <text x="32" y="94" font-family="'Fira Code', monospace" font-size="9.5" fill="#e2e8f0">  return (</text>
+    
+    <rect x="25" y="104" width="160" height="80" rx="5" fill="rgba(97, 218, 251, 0.1)" stroke="#61dafb" stroke-width="1"/>
+    <text x="32" y="124" font-family="'Fira Code', monospace" font-size="9" fill="#61dafb">    &lt;div className="app"&gt;</text>
+    <text x="36" y="142" font-family="'Fira Code', monospace" font-size="9" fill="#ffd280">      &lt;h1&gt;Olá, React!&lt;/h1&gt;</text>
+    <text x="36" y="160" font-family="'Fira Code', monospace" font-size="9" fill="#a0aec0">      &lt;p&gt;Vite SPA&lt;/p&gt;</text>
+    <text x="32" y="176" font-family="'Fira Code', monospace" font-size="9" fill="#61dafb">    &lt;/div&gt;</text>
+
+    <text x="32" y="200" font-family="'Fira Code', monospace" font-size="9.5" fill="#e2e8f0">  )</text>
+    <text x="25" y="218" font-family="'Fira Code', monospace" font-size="9.5" fill="#e2e8f0">}</text>
+    <text x="25" y="240" font-family="'Fira Code', monospace" font-size="9.5" fill="#a0aec0">export default App</text>
+
+    <text x="25" y="272" font-family="'Inter', sans-serif" font-size="9.2" fill="#2ecc71">Tela renderizada!</text>
+  </g>
+</svg>

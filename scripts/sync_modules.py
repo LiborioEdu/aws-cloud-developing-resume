@@ -25,19 +25,22 @@ OUTPUT_JS = os.path.join(ROOT_DIR, 'js', 'modules-data.js')
 INDEX_FILE = os.path.join(ROOT_DIR, 'index.html')
 
 MODULE_TITLES = {
-    1: "1. Welcome to AWS Academy Cloud Developing",
-    2: "2. Introducing to Developing on AWS",
-    3: "3. Developing Storage Solutions",
-    4: "4. Securing Access to Cloud Resources",
-    5: "5. Developing Flexible NoSQL Solutions",
-    6: "6. Developing REST APIs",
-    7: "7. Developing Event-Driven Serverless Solutions",
-    8: "8. Introducing Containers and Container Services",
-    9: "9. Caching Information for Scalability",
-    10: "10. Developing with Messaging Services",
-    11: "11. Defining Workflows to Orchestrate Functions",
-    12: "12. Developing Secure Applications on AWS",
-    13: "13. Automating Deployment Using CI/CD Pipelines",
+    # AWS Academy Cloud Developing
+    "modulo-1": "1. Welcome to AWS Academy Cloud Developing",
+    "modulo-2": "2. Introducing to Developing on AWS",
+    "modulo-3": "3. Developing Storage Solutions",
+    "modulo-4": "4. Securing Access to Cloud Resources",
+    "modulo-5": "5. Developing Flexible NoSQL Solutions",
+    "modulo-6": "6. Developing REST APIs",
+    "modulo-7": "7. Developing Event-Driven Serverless Solutions",
+    "modulo-8": "8. Introducing Containers and Container Services",
+    "modulo-9": "9. Caching Information for Scalability",
+    "modulo-10": "10. Developing with Messaging Services",
+    "modulo-11": "11. Defining Workflows to Orchestrate Functions",
+    "modulo-12": "12. Developing Secure Applications on AWS",
+    "modulo-13": "13. Automating Deployment Using CI/CD Pipelines",
+    # React Frontend Development
+    "react-modulo-1": "1. Fundamentos do Ecossistema React",
 }
 
 
@@ -46,11 +49,20 @@ def main():
     referenced_imgs = set()
 
     for filename in sorted(os.listdir(MODULES_DIR)):
-        match = re.match(r'^modulo-0*(\d+)\.html$', filename)
-        if not match:
+        match_aws = re.match(r'^modulo-0*(\d+)\.html$', filename)
+        match_react = re.match(r'^react-modulo-0*(\d+)\.html$', filename)
+
+        if match_aws:
+            mod_num = int(match_aws.group(1))
+            mod_id = f'modulo-{mod_num}'
+            track = 'aws'
+        elif match_react:
+            mod_num = int(match_react.group(1))
+            mod_id = f'react-modulo-{mod_num}'
+            track = 'react'
+        else:
             continue
-        mod_num = int(match.group(1))
-        mod_id = f'modulo-{mod_num}'
+
         filepath = os.path.join(MODULES_DIR, filename)
         with open(filepath, 'r', encoding='utf-8') as f:
             html_content = f.read()
@@ -60,8 +72,9 @@ def main():
 
         modules_data[mod_id] = {
             'id': mod_id,
+            'track': track,
             'number': mod_num,
-            'title': MODULE_TITLES.get(mod_num, f'Module {mod_num}'),
+            'title': MODULE_TITLES.get(mod_id, f'Module {mod_num}'),
             'file': f'modules/{filename}',
             'html': html_content
         }
@@ -84,7 +97,8 @@ def main():
         if os.path.exists(abs_img):
             with open(abs_img, 'rb') as img_f:
                 b64 = base64.b64encode(img_f.read()).decode('ascii')
-                portal_img_map[rel_img] = f'data:image/png;base64,{b64}'
+                mime = 'image/svg+xml' if rel_img.endswith('.svg') else 'image/png'
+                portal_img_map[rel_img] = f'data:{mime};base64,{b64}'
 
     with open(CSS_FILE, 'r', encoding='utf-8') as f:
         css_text = f.read()

@@ -1,0 +1,373 @@
+<span class="anchor" id="react-modulo-1"></span>
+<section data-module-id="react-modulo-1">
+    <h1>1. Fundamentos do Ecossistema React e Setup com Vite</h1>
+
+    <span class="anchor-h2" id="react1-fundamentos"></span>
+    <h2>1. Fundamentos do Ecossistema</h2>
+
+    <h4>O desenvolvimento frontend moderno passou por uma transformação radical na última década: saímos da manipulação manual e imperativa do DOM com jQuery ou JavaScript puro para a era das <strong>Single Page Applications (SPAs) declarativas e orientadas a componentes</strong>. Para dominar o React, o primeiro passo indispensável é compreender com profundidade a tríade fundamental que sustenta o seu ecossistema: <strong>React, Node.js e npm</strong>.</h4>
+
+    <h3>O que é o React? (Biblioteca Declarativa Baseada em Componentes)</h3>
+    <h4>Criado e mantido pela Meta (Facebook), o <strong>React</strong> é uma biblioteca JavaScript de código aberto focada exclusivamente na <strong>construção de interfaces de usuário (UI)</strong>:</h4>
+    <ul>
+        <li><strong>Biblioteca vs. Framework:</strong> Diferente de frameworks opinativos como Angular ou Django (que impõem estruturas rígidas para roteamento, chamadas HTTP e gerenciamento de estado), o React foca estritamente na <strong>camada de visualização (a View do padrão MVC)</strong>. Você tem total liberdade para escolher as ferramentas que melhor se adaptam à sua aplicação.</li>
+        <li><strong>Paradigma Declarativo:</strong> Em vez de dizer ao navegador <em>"como"</em> manipular o DOM passo a passo (como fazer <code>document.getElementById</code>, criar elementos e anexar nós manualmente), você simplesmente descreve <em>"o que"</em> quer que apareça na tela em função do <strong>Estado (State)</strong> atual da aplicação. Quando o estado muda, o React se encarrega de sincronizar a tela.</li>
+        <li><strong>Arquitetura Baseada em Componentes:</strong> A interface é fatiada em blocos isolados, independentes e altamente reutilizáveis chamados <strong>Componentes</strong>. Um botão, uma barra de navegação, um card de produto ou uma tabela inteira são componentes que possuem seu próprio ciclo de vida, estilos e lógica interna.</li>
+    </ul>
+
+    <h3>O Grande Diferencial Técnico: O Virtual DOM e a Reconciliação</h3>
+    <h4>No desenvolvimento web clássico, o gargalo de desempenho sempre foi o <strong>Real DOM (Document Object Model)</strong> do navegador. O DOM nativo é uma árvore pesada em C++: qualquer alteração mínima em um nó pode desencadear cálculos caros de layout (<em>Reflow</em>) e repintura de pixels na tela (<em>Repaint</em>), causando engasgos (<em>jank</em>) na taxa de quadros (FPS).</h4>
+
+    <h4>Para resolver esse problema de performance, o React introduziu o conceito de <strong>Virtual DOM (VDOM)</strong>:</h4>
+    <ol>
+        <li><strong>Representação Leve em Memória:</strong> O Virtual DOM é uma cópia virtual e ultraleve da árvore real de elementos, existindo puramente como objetos JavaScript simples na memória RAM.</li>
+        <li><strong>Algoritmo de Diffing:</strong> Quando o estado ou as propriedades (<em>props</em>) de um componente sofrem alteração, o React renderiza uma nova árvore do Virtual DOM e compara essa nova versão com o snapshot anterior através de um algoritmo heurístico de alta performance chamado <strong>Diffing</strong>.</li>
+        <li><strong>Reconciliação e Patch Cirúrgico:</strong> O React identifica com exatidão matemática quais nós realmente foram alterados e aplica um <strong>patch em lote (batch update)</strong> exclusivamente nos nós afetados do Real DOM do navegador. O restante da página permanece intacto, garantindo transições fluidas a 60 FPS sem recarregar a página!</li>
+    </ol>
+
+    <div class="image-container">
+        <img src="img/react_virtual_dom_diffing.svg" loading="lazy" alt="Mecanismo de Reconciliação do Virtual DOM no React">
+        <div class="image-caption">Fluxo de Reconciliação do React: a mudança de estado gera um novo snapshot no Virtual DOM em memória; o algoritmo de Diffing identifica a diferença e aplica a atualização cirurgicamente no DOM Real do navegador</div>
+    </div>
+
+    <h3>Tabela Comparativa: Real DOM vs. Virtual DOM</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Critério</th>
+                <th>Real DOM (Navegador Tradicional)</th>
+                <th>Virtual DOM (React)</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>Local de Execução</strong></td>
+                <td>Diretamente na árvore de renderização do navegador (C++/Gecko/Blink)</td>
+                <td>Na memória RAM do JavaScript (objetos JS leves e rápidos)</td>
+            </tr>
+            <tr>
+                <td><strong>Custo de Atualização</strong></td>
+                <td>Alto: alterações frequentes disparam Reflows e Repaints pesados</td>
+                <td>Mínimo: comparações em memória ocorrem em milissegundos</td>
+            </tr>
+            <tr>
+                <td><strong>Comportamento de Atualização</strong></td>
+                <td>Geralmente reconstrói elementos e ramos inteiros da árvore</td>
+                <td>Atualização cirúrgica em lote (apenas os nós com diferenças)</td>
+            </tr>
+            <tr>
+                <td><strong>Manipulação do Desenvolvedor</strong></td>
+                <td>Imperativa (<code>document.createElement</code>, <code>appendChild</code>)</td>
+                <td>Declarativa (você descreve o JSX e o React cuida do DOM)</td>
+            </tr>
+            <tr>
+                <td><strong>Desempenho em UIs Dinâmicas</strong></td>
+                <td>Degrada com facilidade em listas longas ou dashboards em tempo real</td>
+                <td>Altamente otimizado e previsível para aplicações interativas</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <hr>
+
+    <h3>O Papel do Node.js no Ecossistema React</h3>
+    <h4>Uma dúvida extremamente comum entre desenvolvedores iniciantes é: <em>"Se o React é uma biblioteca frontend que roda no navegador do usuário, por que eu preciso instalar o Node.js no meu computador?"</em></h4>
+
+    <h4><strong>A Resposta é Infraestrutura de Desenvolvimento (Tooling):</strong></h4>
+    <ul>
+        <li>O <strong>Node.js</strong> é um ambiente de execução (runtime) JavaScript assíncrono construído sobre o motor V8 de alta performance do Google Chrome.</li>
+        <li>No contexto do React, você <strong>não está usando o Node.js como servidor backend</strong> (sua API pode ser em Python, Java, C#, Go ou serverless na AWS).</li>
+        <li>O Node.js funciona como a <strong>ferramenta de linha de comando essencial</strong> para executar o ecossistema local do desenvolvedor:
+            <ul>
+                <li>Rodar servidores locais de desenvolvimento ultrarrápidos com suporte a <strong>Hot Module Replacement (HMR)</strong>.</li>
+                <li>Executar empacotadores modernos (*bundlers* como o <strong>Vite</strong>) que compilam a sintaxe moderna (JSX, ES Modules, TypeScript, PostCSS) em pacotes compatíveis com todos os navegadores.</li>
+                <li>Executar linters (ESLint), formatadores de código (Prettier) e baterias de testes automatizados (Vitest, Jest).</li>
+            </ul>
+        </li>
+    </ul>
+
+    <h3>O Papel do npm (Node Package Manager)</h3>
+    <h4>O <strong>npm</strong> é o gerenciador de pacotes oficial distribuído conjuntamente com o Node.js. Ele é a espinha dorsal de compartilhamento de código da comunidade JavaScript mundial:</h4>
+    <ul>
+        <li><strong>O Manifesto <code>package.json</code>:</strong> É o coração do projeto. Registra o nome da aplicação, a versão, os scripts de execução (<code>dev</code>, <code>build</code>, <code>preview</code>) e lista todas as dependências externas que o projeto precisa para funcionar (como <code>react</code>, <code>react-dom</code>, <code>lucide-react</code>, etc.).</li>
+        <li><strong>A Trava de Integridade <code>package-lock.json</code>:</strong> Garante que qualquer outro desenvolvedor da sua equipe (ou servidor de CI/CD) que rodar <code>npm install</code> baixe <strong>exatamente as mesmas versões subjacentes e árvores de dependência</strong>, eliminando o erro de quebras por atualizações silenciosas.</li>
+        <li><strong>A Pasta <code>node_modules/</code>:</strong> O diretório local onde o npm baixa e armazena fisicamente o código compilado de todas as bibliotecas e de suas respectivas dependências. <em>Regra de ouro:</em> Esta pasta nunca deve ser commitada no Git (deve constar obrigatoriamente no <code>.gitignore</code>).</li>
+    </ul>
+
+    <hr>
+
+    <span class="anchor-h2" id="react1-instalacao"></span>
+    <h2>2. Instalação e Configuração Profissional (Linux/Ubuntu)</h2>
+
+    <h4>Para programar em React com estabilidade no Linux (Ubuntu/Debian), configurar o ambiente de desenvolvimento de forma limpa e profissional evita dores de cabeça com permissões e versões defasadas.</h4>
+
+    <h3>Por que NÃO Usar o comando <code>sudo apt install nodejs</code>?</h3>
+    <div class="callout-alerta">
+        <p><strong>Armadilha Comum no Linux:</strong> Os repositórios oficiais do Ubuntu (gerenciador <code>apt</code>) costumam conter versões antigas e desatualizadas do Node.js. Além disso, a instalação via <code>apt</code> vincula os binários ao sistema operacional global, forçando o uso de <code>sudo npm install -g</code>, o que corrompe permissões de arquivos locais e cria vulnerabilidades sérias de segurança!</p>
+    </div>
+
+    <h3>A Prática Recomendada da Indústria: NVM (Node Version Manager)</h3>
+    <h4>O <strong>NVM</strong> é um script gerenciador que instala e isola as versões do Node.js dentro do diretório pessoal do seu usuário (<code>~/.nvm</code>). Isso permite instalar múltiplas versões (ex: Node 18 para um projeto legado e Node 20/22 para projetos modernos) e alternar entre elas instantaneamente com um único comando, <strong>sem precisar de <code>sudo</code></strong>.</h4>
+
+    <h4><strong>Passo 1: Instalar o NVM via Terminal Bash:</strong></h4>
+    <pre><code># Baixa e executa o script oficial de instalação do NVM
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+
+# Recarrega a configuração do terminal para reconhecer o comando nvm
+source ~/.bashrc</code></pre>
+
+    <h4><strong>Passo 2: Instalar a Versão LTS do Node.js:</strong></h4>
+    <pre><code># Instala a versão mais recente com Suporte de Longo Prazo (LTS)
+nvm install --lts
+
+# Define a versão LTS como padrão do sistema para novas abas do terminal
+nvm use --lts
+nvm alias default 'lts/*'</code></pre>
+
+    <h4><strong>Passo 3: Validar a Instalação:</strong></h4>
+    <pre><code>node -v   # Deve exibir v20.x ou v22.x LTS
+npm -v    # Deve exibir a versão estável do npm (ex: 10.x+)</code></pre>
+
+    <hr>
+
+    <h3>Configuração Profissional do VS Code para React</h3>
+    <h4>O Visual Studio Code é o editor padrão para desenvolvimento React. Para atingir a máxima produtividade ao escrever componentes JSX, duas configurações no <code>settings.json</code> são indispensáveis:</h4>
+
+    <h4><strong>1. Ativação do Emmet em Código JSX:</strong></h4>
+    <ul>
+        <li>O <strong>Emmet</strong> é o motor de expansão de código que permite digitar abreviações como <code>div.card>h2+p+button</code> e pressionar <code>Tab</code> para gerar a marcação completa instantaneamente.</li>
+        <li>Por padrão, o VS Code só habilita o Emmet em arquivos <code>.html</code> puros. Em arquivos React (<code>.jsx</code> ou <code>.tsx</code>), o Emmet fica desativado até você ensinar o editor a tratá-los como <code>javascriptreact</code>.</li>
+    </ul>
+
+    <h4><strong>2. Formatação Automática ao Salvar com Prettier:</strong></h4>
+    <ul>
+        <li>Instale a extensão oficial <strong>Prettier - Code formatter</strong> (ID: <code>esbenp.prettier-vscode</code>).</li>
+        <li>Com a opção <code>editor.formatOnSave: true</code>, cada vez que você pressionar <code>Ctrl + S</code> no arquivo <code>App.jsx</code>, o Prettier corrige automaticamente indentações desalinhadas, adiciona ponto-e-vírgulas e formata tags JSX multilinhas com clareza cirúrgica.</li>
+    </ul>
+
+    <h3>Como Abrir e Configurar o <code>settings.json</code> do VS Code:</h3>
+    <ol>
+        <li>No VS Code, pressione <code>Ctrl + Shift + P</code> (ou <code>F1</code>) para abrir a Paleta de Comandos.</li>
+        <li>Digite <strong>Preferences: Open User Settings (JSON)</strong> e pressione <code>Enter</code>.</li>
+        <li>Adicione as propriedades recomendadas abaixo dentro do objeto JSON:</li>
+    </ol>
+
+    <pre><code>{
+  "editor.tabSize": 2,
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "emmet.includeLanguages": {
+    "javascript": "javascriptreact",
+    "typescript": "typescriptreact"
+  },
+  "emmet.syntaxProfiles": {
+    "javascript": "jsx"
+  },
+  "javascript.suggest.autoImports": true,
+  "typescript.suggest.autoImports": true
+}</code></pre>
+
+    <hr>
+
+    <span class="anchor-h2" id="react1-vite"></span>
+    <h2>3. Criando o Projeto com Vite</h2>
+
+    <h4>Durante anos, a ferramenta oficial da Meta para criar novos projetos React foi o <strong>Create React App (CRA)</strong>. No entanto, o CRA tornou-se obsoleto e foi oficialmente descontinuado pela comunidade por usar o Webpack de forma engessada, demorando dezenas de segundos para compilar aplicações médias na inicialização.</h4>
+
+    <h4>O <strong>Vite</strong> (palavra francesa que significa <em>"rápido"</em>, pronunciada <em>"veet"</em>) assumiu a liderança absoluta da indústria como o empacotador e servidor de desenvolvimento padrão para React, Vue e Svelte.</h4>
+
+    <h3>Por que o Vite é Tão Revolucionário?</h3>
+    <ul>
+        <li><strong>Navegadores Modernos com Suporte a ES Modules (ESM):</strong> O Vite não tenta empacotar e recompilar todo o seu código em um único arquivo gigantesco na memória antes de abrir o servidor local. Em vez disso, ele deixa o próprio navegador requisitar módulos individuais sob demanda via <code>import</code> nativo.</li>
+        <li><strong>Compilação em Go com esbuild:</strong> Nas etapas de pré-empacotamento de dependências, o Vite utiliza o <strong>esbuild</strong>, um compilador de código escrito na linguagem Go que chega a ser <strong>de 10 a 100 vezes mais rápido</strong> do que ferramentas tradicionais baseadas em JavaScript.</li>
+        <li><strong>Inicialização Instantânea:</strong> O servidor de desenvolvimento sobe em menos de <strong>300 milissegundos</strong>, independentemente do tamanho do projeto!</li>
+        <li><strong>Hot Module Replacement (HMR) em Tempo Real:</strong> Quando você altera um componente no VS Code, apenas aquele componente específico é atualizado no navegador em milissegundos, mantendo intacto o estado atual da tela sem disparar recarregamento completo da página.</li>
+    </ul>
+
+    <h3>Tabela Comparativa: Create React App (CRA) vs. Vite</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Característica</th>
+                <th>Create React App (CRA - Legado / Descontinuado)</th>
+                <th>Vite (Padrão Moderno da Indústria)</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>Bundler Subjacente</strong></td>
+                <td>Webpack 5 (executado em JavaScript)</td>
+                <td>esbuild (em Go para dev) + Rollup (para build de produção)</td>
+            </tr>
+            <tr>
+                <td><strong>Tempo de Inicialização do Dev Server</strong></td>
+                <td>Lento: de 30 a 90 segundos em projetos médios/grandes</td>
+                <td><strong>Instantâneo:</strong> ~300 milissegundos</td>
+            </tr>
+            <tr>
+                <td><strong>Mecanismo de Dev</strong></td>
+                <td>Empacota todo o código em memória antes de servir</td>
+                <td>Nativo via Native ES Modules (ESM) sob demanda do browser</td>
+            </tr>
+            <tr>
+                <td><strong>Hot Module Replacement (HMR)</strong></td>
+                <td>Lento e frequentemente perde o estado de componentes</td>
+                <td>Ultrarrápido (sub-100ms) com preservação de estado</td>
+            </tr>
+            <tr>
+                <td><strong>Configurabilidade</strong></td>
+                <td>Rígida (exigia o traumático <code>npm run eject</code>)</td>
+                <td>Flexível e simples via <code>vite.config.js</code> com plugins leves</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <hr>
+
+    <h3>Passo a Passo: Scaffolding e Inicialização do Projeto</h3>
+    <h4>Criar uma nova aplicação React com o Vite requer apenas 3 comandos fundamentais no terminal:</h4>
+
+    <h4><strong>1. Comando de Geração de Código (Scaffolding):</strong></h4>
+    <h4>No terminal, execute o comando abaixo para gerar a estrutura inicial da aplicação já especificando o template oficial para React puro com JavaScript:</h4>
+    <pre><code>npm create vite@latest meu-projeto-react -- --template react</code></pre>
+    <div class="callout-dica">
+        <p><strong>Entendendo o Comando:</strong> Os dois hífens duplos <code>-- --template react</code> servem para repassar o argumento diretamente para o inicializador do Vite, instruindo-o a não abrir o menu interativo de perguntas e criar imediatamente a base configurada para React.</p>
+    </div>
+
+    <h4><strong>2. Instalação das Dependências:</strong></h4>
+    <h4>O Vite cria os arquivos de configuração leves em segundos, mas não baixa a pesada pasta <code>node_modules</code> automaticamente. Acesse a pasta do projeto e solicite o download:</h4>
+    <pre><code>cd meu-projeto-react
+npm install</code></pre>
+
+    <h4><strong>3. Inicialização do Servidor Local de Desenvolvimento:</strong></h4>
+    <h4>Inicie o servidor de alta performance:</h4>
+    <pre><code>npm run dev</code></pre>
+    <h4>A saída do terminal exibirá o endereço local instantaneamente:</h4>
+    <pre><code>  VITE v5.x.x  ready in 280 ms
+
+  ➜  Local:   http://localhost:5173/
+  ➜  Network: use --host to expose
+  ➜  press h + enter to show help</code></pre>
+    <h4>Abra o navegador no endereço <code>http://localhost:5173</code> para visualizar a tela de boas-vindas do Vite com o logotipo giratório do React e o contador interativo funcional!</h4>
+
+    <h4><strong>4. Comandos de Produção:</strong></h4>
+    <pre><code># Compila e minifica a aplicação na pasta dist/ com tree-shaking otimizado
+npm run build
+
+# Sobe um servidor estático local para inspecionar o pacote de produção gerado
+npm run preview</code></pre>
+
+    <hr>
+
+    <span class="anchor-h2" id="react1-estrutura"></span>
+    <h2>4. Dissecando a Estrutura de Arquivos Inicial</h2>
+
+    <h4>Ao abrir a pasta recém-gerada no VS Code (<code>code .</code>), você encontrará uma árvore de diretórios enxuta, intuitiva e organizada:</h4>
+
+    <pre><code>meu-projeto-react/
+├── index.html              # Ponto de entrada HTML da Single Page Application (SPA)
+├── package.json            # Manifesto de scripts, dependências e metadados
+├── package-lock.json       # Trava de versões exatas das dependências instaladas
+├── vite.config.js          # Configuração do empacotador e plugins do Vite
+├── .gitignore              # Lista de pastas e arquivos ignorados pelo Git (node_modules, dist)
+├── public/                 # Arquivos estáticos servidos diretamente na raiz
+│   └── vite.svg
+└── src/                    # Código-fonte da aplicação React
+    ├── main.jsx            # Motor de arranque: injeta o React na tag #root do HTML
+    ├── App.jsx             # Componente raiz da interface
+    ├── App.css             # Estilos escopados do componente App
+    ├── index.css           # Estilos globais e reset de CSS
+    └── assets/             # Imagens, fontes e recursos importados via JS
+        └── react.svg</code></pre>
+
+    <div class="image-container">
+        <img src="img/react_vite_spa_lifecycle.svg" loading="lazy" alt="Ciclo de Vida e Inicialização de uma SPA com Vite e React">
+        <div class="image-caption">O Ponto de Entrada da SPA: index.html hospeda a div #root vazia e o script do tipo module; main.jsx utiliza o ReactDOM.createRoot para renderizar o componente raiz App.jsx dinamicamente</div>
+    </div>
+
+    <h3>Análise Detalhada dos Arquivos Principais</h3>
+
+    <h4><strong>1. <code>index.html</code> (A Casca Única da SPA):</strong></h4>
+    <h4>Diferente do Create React App (onde o arquivo HTML ficava escondido dentro da pasta <code>public/</code>), no Vite o <code>index.html</code> fica <strong>estrategicamente localizado na raiz do projeto</strong>:</h4>
+    <ul>
+        <li>O Vite trata o <code>index.html</code> como o <strong>verdadeiro ponto de entrada do grafo de módulos</strong>.</li>
+        <li>Ele contém uma tag <code>&lt;div id="root"&gt;&lt;/div&gt;</code> totalmente vazia. Toda a interface visual que você construir será injetada dentro desse elemento.</li>
+        <li>Contém a tag de carregamento modular nativa: <code>&lt;script type="module" src="/src/main.jsx"&gt;&lt;/script&gt;</code>.</li>
+    </ul>
+
+    <pre><code>&lt;!doctype html&gt;
+&lt;html lang="pt-BR"&gt;
+  &lt;head&gt;
+    &lt;meta charset="UTF-8" /&gt;
+    &lt;link rel="icon" type="image/svg+xml" href="/vite.svg" /&gt;
+    &lt;meta name="viewport" content="width=device-width, initial-scale=1.0" /&gt;
+    &lt;title&gt;Meu Projeto React&lt;/title&gt;
+  &lt;/head&gt;
+  &lt;body&gt;
+    &lt;div id="root"&gt;&lt;/div&gt;
+    &lt;script type="module" src="/src/main.jsx"&gt;&lt;/script&gt;
+  &lt;/body&gt;
+&lt;/html&gt;</code></pre>
+
+    <h4><strong>2. <code>src/main.jsx</code> (O Motor de Arranque da Aplicação):</strong></h4>
+    <h4>É o primeiro arquivo JavaScript/JSX executado quando o navegador carrega a página. Ele realiza a "ponte" entre o mundo HTML e o mundo React:</h4>
+    <ul>
+        <li>Importa o pacote <code>ReactDOM</code> de <code>'react-dom/client'</code>.</li>
+        <li>Captura a div com ID <code>root</code> através de <code>document.getElementById('root')</code>.</li>
+        <li>Utiliza o método moderno <strong><code>ReactDOM.createRoot()</code></strong> para criar a raiz do React.</li>
+        <li>Chama o método <strong><code>.render()</code></strong> passando o componente raiz <code>&lt;App /&gt;</code> envolto por <code>&lt;React.StrictMode&gt;</code> (uma ferramenta de desenvolvimento que executa verificações adicionais e avisa sobre padrões legados no console).</li>
+    </ul>
+
+    <pre><code>import React from 'react'
+import ReactDOM from 'react-dom/client'
+import App from './App.jsx'
+import './index.css'
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>,
+)</code></pre>
+
+    <h4><strong>3. <code>src/App.jsx</code> (O Componente Raiz):</strong></h4>
+    <h4>O componente principal onde a interface nasce. É uma função JavaScript pura que retorna marcação <strong>JSX (JavaScript XML)</strong>:</h4>
+    <ul>
+        <li>A extensão <code>.jsx</code> sinaliza ao Vite e ao editor que o arquivo mistura lógica JavaScript com sintaxe de tags visualmente parecida com HTML.</li>
+        <li>No JSX, atributos com palavras reservadas do JavaScript mudam de nome: <code>class</code> torna-se <code>className</code>, e <code>for</code> torna-se <code>htmlFor</code>.</li>
+        <li>Todo e qualquer novo componente que você criar (um cabeçalho, uma lista de produtos, uma barra lateral) será importado e renderizado direta ou indiretamente dentro deste arquivo!</li>
+    </ul>
+
+    <pre><code>function App() {
+  return (
+    <div className="container">
+      <h1>Olá, Mundo! Meu Primeiro App React</h1>
+      <p>Construído profissionalmente com Vite e Node.js.</p>
+    </div>
+  )
+}
+
+export default App</code></pre>
+
+    <h4><strong>4. <code>vite.config.js</code> (O Centro de Comando do Empacotador):</strong></h4>
+    <h4>Arquivo de configuração onde você customiza o comportamento do servidor de desenvolvimento e do build:</h4>
+    <ul>
+        <li>Já vem pré-configurado com o plugin oficial <code>@vitejs/plugin-react</code>, responsável por habilitar o suporte a Fast Refresh (HMR) e transformação de JSX via Babel/esbuild.</li>
+        <li>Permite configurar portas alternativas (ex: alterar de <code>5173</code> para <code>3000</code>), configurar variáveis de proxy para backend ou criar atalhos de importação (<em>path aliases</em>, como usar <code>@/components</code> em vez de <code>../../components</code>).</li>
+    </ul>
+
+    <pre><code>import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+
+// https://vitejs.dev/config/
+export default defineConfig({
+  plugins: [react()],
+  server: {
+    port: 5173,
+    open: true // Abre o navegador automaticamente ao rodar npm run dev
+  }
+})</code></pre>
+
+    <div class="callout-dica">
+        <p><strong>Resumo de Ouro da Estrutura:</strong> O navegador lê o <code>index.html</code> na raiz &rarr; o <code>index.html</code> carrega o <code>src/main.jsx</code> &rarr; o <code>main.jsx</code> inicializa o React na <code>&lt;div id="root"&gt;</code> &rarr; e renderiza o <code>src/App.jsx</code> contendo toda a sua interface de usuário!</p>
+    </div>
+</section>

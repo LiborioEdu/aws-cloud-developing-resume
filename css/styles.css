@@ -391,6 +391,46 @@ body {
     transform: translateX(4px);
 }
 
+/* Retângulo Ativo React (Trilha Frontend) */
+.hub-card.active-track.track-react {
+    background: linear-gradient(145deg, rgba(16, 30, 40, 0.94) 0%, rgba(14, 20, 26, 0.98) 100%);
+    border: 1px solid rgba(97, 218, 251, 0.38);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(97, 218, 251, 0.08);
+    cursor: pointer;
+}
+
+.hub-card.active-track.track-react::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #61dafb, #00d8ff, #3498db);
+}
+
+.hub-card.active-track.track-react:hover {
+    transform: translateY(-5px);
+    border-color: #61dafb;
+    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.55), 0 0 28px rgba(97, 218, 251, 0.22);
+}
+
+.hub-card.active-track.track-react .hub-card-icon {
+    background: rgba(97, 218, 251, 0.12);
+    border: 1px solid rgba(97, 218, 251, 0.35);
+    color: #61dafb;
+}
+
+.hub-card.active-track.track-react .hub-card-badge {
+    color: #61dafb;
+    background: rgba(97, 218, 251, 0.12);
+    border: 1px solid rgba(97, 218, 251, 0.3);
+}
+
+.hub-card.active-track.track-react .hub-card-cta {
+    color: #61dafb;
+}
+
 /* Retângulos Reservados / Espaços de Futuras Páginas (Python, React, etc.) */
 .hub-card.placeholder-slot {
     background: rgba(24, 26, 32, 0.55);
@@ -689,6 +729,54 @@ body {
 }
 
 /* ==========================================================================
+   Customizações da Sidebar para Trilha React (#sidebar-react)
+   ========================================================================== */
+#sidebar-react .sidebar-header h2 {
+    color: #61dafb;
+    text-shadow: 0 0 10px rgba(97, 218, 251, 0.35);
+}
+
+#sidebar-react .sidebar-header h2::before {
+    content: '⚛️';
+    font-size: 1.3rem;
+    text-shadow: none;
+    margin-right: 0;
+}
+
+#sidebar-react > ul > li.has-submenu:hover > a .module-arrow {
+    color: #61dafb;
+    background-color: rgba(97, 218, 251, 0.14);
+}
+
+#sidebar-react > ul > li.has-submenu.expanded > a .module-arrow {
+    transform: rotate(90deg);
+    color: #61dafb;
+}
+
+#sidebar-react > ul > li.active-module > a {
+    color: var(--heading-color);
+    background-color: rgba(97, 218, 251, 0.08);
+    font-weight: 600;
+    box-shadow: inset 3px 0 0 #61dafb;
+}
+
+#sidebar-react > ul > li.active-module > a .module-dot {
+    color: #61dafb;
+}
+
+#sidebar-react ul .sub-menu li a:hover {
+    color: #61dafb;
+    background-color: rgba(97, 218, 251, 0.08);
+}
+
+#sidebar-react ul .sub-menu li a.active {
+    color: #61dafb;
+    background-color: rgba(97, 218, 251, 0.12);
+    border-left: 2px solid #61dafb;
+    font-weight: 500;
+}
+
+/* ==========================================================================
    Main Content Area (Espaçamento Horizontal Ampliado)
    ========================================================================== */
 .content {
@@ -735,6 +823,12 @@ body {
     padding: 4px 10px;
     border-radius: 4px;
     font-size: 0.78rem;
+}
+
+.term-header .active-module-badge.badge-react {
+    background-color: rgba(97, 218, 251, 0.12);
+    color: #61dafb;
+    border: 1px solid rgba(97, 218, 251, 0.35);
 }
 
 /* Card Principal do Módulo */
