@@ -1,0 +1,158 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 440" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGrad2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#141820" />
+      <stop offset="100%" stop-color="#0f1218" />
+    </linearGradient>
+    <linearGradient id="cyanBox" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="rgba(97, 218, 251, 0.16)" />
+      <stop offset="100%" stop-color="rgba(52, 152, 219, 0.06)" />
+    </linearGradient>
+    <linearGradient id="greenBox" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="rgba(46, 204, 113, 0.16)" />
+      <stop offset="100%" stop-color="rgba(39, 174, 96, 0.06)" />
+    </linearGradient>
+    <linearGradient id="orangeBox" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="rgba(255, 153, 0, 0.16)" />
+      <stop offset="100%" stop-color="rgba(230, 126, 34, 0.06)" />
+    </linearGradient>
+    <marker id="arrowCyan2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#61dafb" />
+    </marker>
+    <marker id="arrowOrange2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#ff9900" />
+    </marker>
+    <marker id="arrowGreen2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#2ecc71" />
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="960" height="440" rx="12" fill="url(#bgGrad2)" stroke="#2d333b" stroke-width="1.5" />
+
+  <!-- Title -->
+  <text x="480" y="36" fill="#ffffff" font-family="Inter, sans-serif" font-size="16" font-weight="700" text-anchor="middle" letter-spacing="0.5">
+    ARQUITETURA MODULAR ES6: EXPORTAÇÃO, IMPORTAÇÃO E ÁRVORE DE COMPONENTES
+  </text>
+  <line x1="60" y1="50" x2="900" y2="50" stroke="#2d333b" stroke-width="1" />
+
+  <!-- Left Column: Component Modules (src/components/) -->
+  <text x="190" y="76" fill="#9ca3af" font-family="Fira Code, monospace" font-size="12" font-weight="600" text-anchor="middle">
+    MÓDULOS ISOLADOS (src/components/)
+  </text>
+
+  <!-- Box 1: Cabecalho.jsx (Default Export) -->
+  <rect x="35" y="92" width="310" height="98" rx="8" fill="url(#cyanBox)" stroke="#61dafb" stroke-width="1.5" />
+  <text x="52" y="114" fill="#61dafb" font-family="Fira Code, monospace" font-size="12" font-weight="700">
+    📄 src/components/Cabecalho.jsx
+  </text>
+  <text x="52" y="136" fill="#e5e7eb" font-family="Fira Code, monospace" font-size="11">
+    function Cabecalho() {
+  </text>
+  <text x="64" y="152" fill="#9ca3af" font-family="Fira Code, monospace" font-size="11">
+    return &lt;header&gt;Meu App&lt;/header&gt;;
+  </text>
+  <text x="52" y="166" fill="#e5e7eb" font-family="Fira Code, monospace" font-size="11">
+    }
+  </text>
+  <text x="52" y="182" fill="#ffd700" font-family="Fira Code, monospace" font-size="11" font-weight="600">
+    export default Cabecalho;
+  </text>
+
+  <!-- Box 2: Botao.jsx (Default Export) -->
+  <rect x="35" y="206" width="310" height="98" rx="8" fill="url(#orangeBox)" stroke="#ff9900" stroke-width="1.5" />
+  <text x="52" y="228" fill="#ff9900" font-family="Fira Code, monospace" font-size="12" font-weight="700">
+    📄 src/components/Botao.jsx
+  </text>
+  <text x="52" y="250" fill="#e5e7eb" font-family="Fira Code, monospace" font-size="11">
+    const Botao = () =&gt; {
+  </text>
+  <text x="64" y="266" fill="#9ca3af" font-family="Fira Code, monospace" font-size="11">
+    return &lt;button&gt;Clique Aqui&lt;/button&gt;;
+  </text>
+  <text x="52" y="280" fill="#e5e7eb" font-family="Fira Code, monospace" font-size="11">
+    };
+  </text>
+  <text x="52" y="296" fill="#ffd700" font-family="Fira Code, monospace" font-size="11" font-weight="600">
+    export default Botao;
+  </text>
+
+  <!-- Box 3: Icones.jsx (Named Export) -->
+  <rect x="35" y="320" width="310" height="96" rx="8" fill="url(#greenBox)" stroke="#2ecc71" stroke-width="1.5" />
+  <text x="52" y="342" fill="#2ecc71" font-family="Fira Code, monospace" font-size="12" font-weight="700">
+    📄 src/components/Alertas.jsx
+  </text>
+  <text x="52" y="364" fill="#2ecc71" font-family="Fira Code, monospace" font-size="11" font-weight="600">
+    export function AlertaSucesso() { ... }
+  </text>
+  <text x="52" y="384" fill="#2ecc71" font-family="Fira Code, monospace" font-size="11" font-weight="600">
+    export const AlertaErro = () =&gt; { ... };
+  </text>
+  <text x="52" y="404" fill="#9ca3af" font-family="Inter, sans-serif" font-size="10">
+    * Exportação Nomeada (Named Exports)
+  </text>
+
+  <!-- Arrows from Left to Center -->
+  <path d="M 345 140 L 428 165" fill="none" stroke="#61dafb" stroke-width="2" marker-end="url(#arrowCyan2)" />
+  <text x="386" y="142" fill="#61dafb" font-family="Fira Code, monospace" font-size="10" text-anchor="middle">default</text>
+
+  <path d="M 345 255 L 428 245" fill="none" stroke="#ff9900" stroke-width="2" marker-end="url(#arrowOrange2)" />
+  <text x="386" y="242" fill="#ff9900" font-family="Fira Code, monospace" font-size="10" text-anchor="middle">default</text>
+
+  <path d="M 345 368 L 428 310" fill="none" stroke="#2ecc71" stroke-width="2" marker-end="url(#arrowGreen2)" />
+  <text x="388" y="352" fill="#2ecc71" font-family="Fira Code, monospace" font-size="10" text-anchor="middle">{ named }</text>
+
+  <!-- Center Box: App.jsx (Aggregator) -->
+  <text x="680" y="76" fill="#9ca3af" font-family="Fira Code, monospace" font-size="12" font-weight="600" text-anchor="middle">
+    COMPONENTE RAIZ E COMPOSIÇÃO (src/App.jsx)
+  </text>
+
+  <rect x="435" y="92" width="490" height="324" rx="10" fill="#181c24" stroke="#61dafb" stroke-width="2" />
+  <text x="455" y="118" fill="#ffffff" font-family="Fira Code, monospace" font-size="13" font-weight="700">
+    ⚛️ src/App.jsx (PascalCase + ES6 Imports)
+  </text>
+  <line x1="455" y1="128" x2="905" y2="128" stroke="#2d333b" stroke-width="1" />
+
+  <!-- Imports code -->
+  <text x="455" y="150" fill="#61dafb" font-family="Fira Code, monospace" font-size="11.5">
+    import Cabecalho from './components/Cabecalho';
+  </text>
+  <text x="455" y="170" fill="#ff9900" font-family="Fira Code, monospace" font-size="11.5">
+    import Botao from './components/Botao';
+  </text>
+  <text x="455" y="190" fill="#2ecc71" font-family="Fira Code, monospace" font-size="11.5">
+    import { AlertaSucesso } from './components/Alertas';
+  </text>
+
+  <!-- Component declaration -->
+  <text x="455" y="220" fill="#e5e7eb" font-family="Fira Code, monospace" font-size="11.5" font-weight="600">
+    function App() {
+  </text>
+  <text x="470" y="240" fill="#e5e7eb" font-family="Fira Code, monospace" font-size="11.5">
+    return (
+  </text>
+  <text x="488" y="260" fill="#a78bfa" font-family="Fira Code, monospace" font-size="11.5" font-weight="600">
+    &lt;&gt;  <tspan fill="#6b7280" font-weight="400">{/* React Fragment: Pai invisível */}</tspan>
+  </text>
+  <text x="506" y="282" fill="#61dafb" font-family="Fira Code, monospace" font-size="11.5" font-weight="600">
+    &lt;Cabecalho /&gt;
+  </text>
+  <text x="506" y="304" fill="#e5e7eb" font-family="Fira Code, monospace" font-size="11.5">
+    &lt;main className="container"&gt;
+  </text>
+  <text x="526" y="324" fill="#2ecc71" font-family="Fira Code, monospace" font-size="11.5" font-weight="600">
+    &lt;AlertaSucesso /&gt;
+  </text>
+  <text x="526" y="344" fill="#ff9900" font-family="Fira Code, monospace" font-size="11.5" font-weight="600">
+    &lt;Botao /&gt;
+  </text>
+  <text x="506" y="364" fill="#e5e7eb" font-family="Fira Code, monospace" font-size="11.5">
+    &lt;/main&gt;
+  </text>
+  <text x="488" y="384" fill="#a78bfa" font-family="Fira Code, monospace" font-size="11.5" font-weight="600">
+    &lt;/&gt;
+  </text>
+  <text x="470" y="402" fill="#e5e7eb" font-family="Fira Code, monospace" font-size="11.5">
+    ); }
+  </text>
+</svg>

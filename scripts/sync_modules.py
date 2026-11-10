@@ -41,6 +41,7 @@ MODULE_TITLES = {
     "modulo-13": "13. Automating Deployment Using CI/CD Pipelines",
     # React Frontend Development
     "react-modulo-1": "1. Fundamentos do Ecossistema React",
+    "react-modulo-2": "2. Componentes, JSX e Interatividade",
 }
 
 

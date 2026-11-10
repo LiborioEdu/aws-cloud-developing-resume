@@ -45,7 +45,8 @@
                 badgeClass: 'active-module-badge badge-react',
                 defaultModule: 'react-modulo-1',
                 modules: [
-                    'react-modulo-1'
+                    'react-modulo-1',
+                    'react-modulo-2'
                 ]
             }
         };
@@ -125,6 +126,10 @@
 
             if (/^react-modulo-\d+$/.test(cleanHash)) {
                 return cleanHash;
+            }
+            var matchReactPrefix = cleanHash.match(/^react(\d+)-/);
+            if (matchReactPrefix) {
+                return 'react-modulo-' + matchReactPrefix[1];
             }
             if (cleanHash.indexOf('react') === 0) {
                 return 'react-modulo-1';

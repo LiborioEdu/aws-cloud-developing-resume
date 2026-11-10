@@ -1,0 +1,761 @@
+<span class="anchor" id="react-modulo-2"></span>
+<section data-module-id="react-modulo-2">
+    <h1>2. Componentes, JSX e Interatividade</h1>
+
+    <span class="anchor-h2" id="react2-criando-componentes"></span>
+    <h2>1. Criando Componentes (Aula 24)</h2>
+
+    <h4>No React moderno, toda a interface de usuário é construída a partir de blocos independentes, isolados e reutilizáveis chamados <strong>Componentes</strong>. Sob a ótica técnica da linguagem, <strong>um componente React é fundamentalmente uma função JavaScript que retorna uma interface visual (JSX)</strong>.</h4>
+
+    <h3>A Regra Arquitetural de Ouro: Padrão PascalCase</h3>
+    <h4>A regra mais importante na criação de qualquer componente no React é que <strong>o seu nome deve obrigatoriamente começar com letra maiúscula</strong>, seguindo a convenção <strong>PascalCase</strong> (onde a primeira letra de cada palavra concatenada é maiúscula, como <code>CabecalhoPrincipal</code>, <code>BotaoConfirmar</code> ou <code>CardProduto</code>):</h4>
+    <ul>
+        <li><strong>Tags com letra minúscula (ex: <code>&lt;div&gt;</code>, <code>&lt;h1&gt;</code>, <code>&lt;header&gt;</code>):</strong> O compilador do React interpreta como <strong>elementos HTML nativos</strong> da especificação W3C e envia uma string literal (como <code>"div"</code>) diretamente para o DOM do navegador.</li>
+        <li><strong>Tags com letra maiúscula (ex: <code>&lt;CabecalhoPrincipal /&gt;</code>, <code>&lt;Botao /&gt;</code>):</strong> O React reconhece que se trata de um <strong>componente customizado</strong> criado por você, procurando a função JavaScript correspondente no escopo do arquivo para executá-la e renderizar o seu retorno.</li>
+    </ul>
+
+    <div class="callout-alerta">
+        <p><strong>⚠️ Armadilha Clássica de Iniciantes:</strong> Se você declarar uma função com letra minúscula como <code>function meuBotao()</code> e tentar usá-la no JSX como <code>&lt;meuBotao /&gt;</code>, o React não executará a sua função! Ele tentará criar uma tag HTML inexistente chamada <code>&lt;meubotao&gt;</code> no navegador e exibirá um aviso no console. <strong>Sempre utilize PascalCase para componentes!</strong></p>
+    </div>
+
+    <h3>As Duas Formas de Declarar Componentes Funcionais</h3>
+    <h4>Desde a introdução dos <em>Hooks</em> (React 16.8+), componentes baseados em classes (<em>Class Components</em>) tornaram-se legados. Hoje, 100% dos novos projetos utilizam <strong>Function Components (Componentes Funcionais)</strong>, que podem ser declarados de duas maneiras equivalentes em JavaScript:</h4>
+
+    <pre><code class="language-jsx">// 1. Function Declaration (Sintaxe clássica e tradicional do JavaScript)
+function MeuComponente() {
+  return &lt;h2&gt;Olá, eu sou um componente declarado com function!&lt;/h2&gt;;
+}
+
+// 2. Arrow Function (Sintaxe ES6+ amplamente adotada no mercado)
+const MeuComponenteArrow = () =&gt; {
+  return &lt;h2&gt;Olá, eu sou um componente em Arrow Function!&lt;/h2&gt;;
+};
+
+// 2.1 Arrow Function com Retorno Implícito (quando o componente apenas retorna JSX direto)
+const BadgeStatus = () =&gt; &lt;span className="badge"&gt;Ativo&lt;/span&gt;;</code></pre>
+
+    <h3>Tabela Comparativa: Function Declaration vs. Arrow Function</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Característica</th>
+                <th>Function Declaration (<code>function Nome() {}</code>)</th>
+                <th>Arrow Function (<code>const Nome = () =&gt; {}</code>)</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>Comportamento no React</strong></td>
+                <td>Idêntico: recebe <em>props</em>, gerencia estado (<em>Hooks</em>) e retorna JSX</td>
+                <td>Idêntico: não há diferença de performance ou ciclo de vida no React</td>
+            </tr>
+            <tr>
+                <td><strong>Hoisting (Içamento JS)</strong></td>
+                <td>Sofre <em>hoisting</em>: pode ser chamada antes da linha em que foi declarada no arquivo</td>
+                <td>Não sofre <em>hoisting</em>: deve ser declarada antes de ser utilizada no código</td>
+            </tr>
+            <tr>
+                <td><strong>Retorno Implícito</strong></td>
+                <td>Não possui: exige sempre a palavra-chave <code>return</code> e chaves <code>{ }</code></td>
+                <td>Suporta retorno direto sem a palavra <code>return</code> para expressões puras</td>
+            </tr>
+            <tr>
+                <td><strong>Exportação Direta na Linha</strong></td>
+                <td>Suporta tanto <code>export default function Nome()</code> quanto <code>export function Nome()</code></td>
+                <td>Suporta <code>export const Nome = ...</code> (para <em>default</em>, exporta-se no fim do arquivo)</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="callout-dica">
+        <p><strong>💡 Boas Práticas de Arquitetura:</strong> Independentemente de escolher <code>function</code> tradicional ou <em>Arrow Function</em>, mantenha a consistência no projeto. Além disso, <strong>nunca declare um componente dentro do corpo de outro componente</strong>: isso faria o componente filho ser recriado do zero na memória a cada renderização, destruindo seu estado e prejudicando a performance.</p>
+    </div>
+
+    <hr>
+
+    <span class="anchor-h2" id="react2-import-export"></span>
+    <h2>2. Importação e Exportação de Componentes (Aula 25)</h2>
+
+    <h4>Em uma aplicação profissional, colocar dezenas de componentes dentro de um único arquivo <code>App.jsx</code> tornaria a manutenção caótica e inviável. Para manter o código limpo, organizado e escalável (Seguindo o princípio de responsabilidade única), o React utiliza nativamente o sistema de <strong>Módulos do ECMAScript 6 (ES6 Modules / ESM)</strong>.</h4>
+
+    <h4>A convenção de mercado consiste em criar uma pasta <code>src/components/</code>, separar cada componente em seu próprio arquivo <code>.jsx</code> (ex: <code>src/components/Botao.jsx</code>), <strong>exportá-lo</strong> na origem e <strong>importá-lo</strong> onde for necessário.</h4>
+
+    <div class="image-container">
+        <img src="img/react_component_tree_modules.svg" loading="lazy" alt="Arquitetura Modular ES6: Exportação, Importação e Árvore de Componentes">
+        <div class="image-caption">Fluxo de modularização ES6 no React: componentes isolados em src/components/ são exportados via Default ou Named Export e compostos na árvore principal dentro do App.jsx</div>
+    </div>
+
+    <h3>As Duas Modalidades de Exportação no ES6</h3>
+
+    <ol>
+        <li>
+            <strong>Exportação Padrão (<code>export default</code>):</strong>
+            <ul>
+                <li>Permite exportar <strong>apenas um único componente principal por arquivo</strong>.</li>
+                <li>Na hora de importar em outro arquivo, <strong>não se utilizam chaves</strong> (<code>import Botao from './components/Botao'</code>).</li>
+                <li>Tecnicamente, o JavaScript permite que você dê qualquer nome na importação default, mas a <strong>convenção profissional estrita é manter exatamente o mesmo nome PascalCase</strong> do componente e do arquivo.</li>
+            </ul>
+        </li>
+        <li>
+            <strong>Exportação Nomeada (<code>export</code> / Named Export):</strong>
+            <ul>
+                <li>Permite exportar <strong>múltiplos componentes, variáveis ou funções auxiliares a partir de um mesmo arquivo</strong> (ex: um arquivo <code>Icones.jsx</code> ou <code>Botoes.jsx</code> que agrupa variações).</li>
+                <li>Na hora de importar, é <strong>obrigatório o uso de chaves <code>{ }</code></strong> com o nome exato que foi exportado (ex: <code>import { BotaoPrimario, BotaoSecundario } from './components/Botoes'</code>).</li>
+                <li>Caso haja conflito de nomes no arquivo de destino, você pode criar um apelido (<em>alias</em>) usando a palavra-chave <code>as</code>: <code>import { BotaoPrimario as BotaoPrincipal } from './components/Botoes'</code>.</li>
+            </ul>
+        </li>
+    </ol>
+
+    <h3>Exemplo Prático Completo: Exportando e Importando Componentes</h3>
+    <pre><code class="language-jsx">// ==========================================================
+// 1. Arquivo: src/components/Botao.jsx (Exportação Default)
+// ==========================================================
+function Botao() {
+  return &lt;button className="btn-padrao"&gt;Clique Aqui&lt;/button&gt;;
+}
+
+export default Botao; // Exportação Padrão (1 por arquivo)
+
+
+// ==========================================================
+// 2. Arquivo: src/components/Alertas.jsx (Exportação Nomeada)
+// ==========================================================
+export function AlertaSucesso() {
+  return &lt;div className="alerta-verde"&gt;Operação realizada com sucesso!&lt;/div&gt;;
+}
+
+export const AlertaErro = () =&gt; {
+  return &lt;div className="alerta-vermelho"&gt;Falha ao processar requisição.&lt;/div&gt;;
+};
+
+
+// ==========================================================
+// 3. Arquivo: src/App.jsx (Consumindo os Módulos)
+// ==========================================================
+import Botao from './components/Botao'; // Import Default (Sem chaves)
+import { AlertaSucesso, AlertaErro } from './components/Alertas'; // Import Nomeado (Com chaves)
+
+function App() {
+  return (
+    &lt;div&gt;
+      &lt;h1&gt;Minha Aplicação Modular&lt;/h1&gt;
+      &lt;AlertaSucesso /&gt;
+      &lt;Botao /&gt; {/* Instanciando o componente como uma tag */}
+      &lt;AlertaErro /&gt;
+    &lt;/div&gt;
+  );
+}
+
+export default App;</code></pre>
+
+    <h3>Tabela Comparativa: Export Default vs. Named Export</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Critério</th>
+                <th>Exportação Padrão (<code>export default</code>)</th>
+                <th>Exportação Nomeada (<code>export { ... }</code>)</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>Quantidade por Arquivo</strong></td>
+                <td>Apenas <strong>1 único</strong> <code>export default</code> permitido por arquivo</td>
+                <td><strong>Ilimitada</strong>: múltiplos componentes ou funções no mesmo arquivo</td>
+            </tr>
+            <tr>
+                <td><strong>Sintaxe de Exportação</strong></td>
+                <td><code>export default Botao;</code></td>
+                <td><code>export function Botao() {}</code> ou <code>export { Botao };</code></td>
+            </tr>
+            <tr>
+                <td><strong>Sintaxe de Importação</strong></td>
+                <td><strong>Sem chaves:</strong> <code>import Botao from './Botao';</code></td>
+                <td><strong>Com chaves:</strong> <code>import { Botao } from './Botao';</code></td>
+            </tr>
+            <tr>
+                <td><strong>Renomeação no Import</strong></td>
+                <td>Livre diretamente (<code>import MeuBtn from './Botao'</code>)</td>
+                <td>Exige o operador <code>as</code> (<code>import { Botao as MeuBtn }</code>)</td>
+            </tr>
+            <tr>
+                <td><strong>Caso de Uso Ideal</strong></td>
+                <td>Componentes principais que possuem seu próprio arquivo dedicado</td>
+                <td>Arquivos utilitários, bibliotecas de ícones ou subcomponentes correlatos</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <hr>
+
+    <span class="anchor-h2" id="react2-jsx"></span>
+    <h2>3. Conhecendo o JSX (Aula 26)</h2>
+
+    <h4>O <strong>JSX (JavaScript XML)</strong> é uma extensão de sintaxe para o JavaScript criada pela equipe do React. Embora visualmente pareça código HTML colado dentro de uma função JavaScript, <strong>o navegador não compreende JSX nativamente</strong>.</h4>
+
+    <h4><strong>O que acontece nos bastidores?</strong> Quando você salva o seu arquivo <code>.jsx</code>, o transpilador embutido no Vite (<em>esbuild</em> / <em>Babel</em>) intercepta cada tag JSX e a converte em chamadas de função JavaScript puras (<code>React.createElement</code> ou a função moderna <code>_jsx</code> do runtime automático), que retornam objetos JavaScript representando a árvore do <strong>Virtual DOM</strong>.</h4>
+
+    <div class="image-container">
+        <img src="img/react_jsx_transpilation_flow.svg" loading="lazy" alt="Fluxo de Transpilação do JSX para JavaScript Puro">
+        <div class="image-caption">Pipeline de compilação do JSX: o código declarativo escrito pelo desenvolvedor passa pela validação sintática do transpilador no Vite e é convertido em chamadas React.createElement() no navegador</div>
+    </div>
+
+    <h3>As 5 Regras Estritas do JSX</h3>
+    <h4>Por ser traduzido diretamente em expressões e objetos JavaScript, o JSX impõe <strong>cinco regras sintáticas obrigatórias</strong> que o diferenciam do HTML comum:</h4>
+
+    <ol>
+        <li>
+            <strong>Regra 1 — Um Único Elemento Pai (Root Element) e Fragmentos (<code>&lt;&gt; ... &lt;/&gt;</code>):</strong>
+            <ul>
+                <li>Em JavaScript, uma função só pode retornar <strong>um único valor/objeto</strong> no seu <code>return</code>. Portanto, um componente <strong>não pode devolver dois elementos irmãos soltos lado a lado</strong> (ex: um <code>&lt;h1&gt;</code> seguido de um <code>&lt;p&gt;</code> sem um container pai).</li>
+                <li>Você pode envolvê-los em uma <code>&lt;div&gt;</code> ou <code>&lt;section&gt;</code>. Porém, adicionar <code>&lt;div&gt;</code> desnecessárias polui o HTML final e pode quebrar regras de CSS (como layouts <em>Flexbox</em> ou <em>CSS Grid</em>).</li>
+                <li><strong>A Solução Elegante — React Fragment (<code>&lt;&gt; ... &lt;/&gt;</code>):</strong> O Fragmento é uma tag vazia especial do React que cumpre a regra do elemento pai único no JSX, mas é <strong>totalmente invisível no navegador</strong> (não gera nenhum nó extra no DOM real!).</li>
+            </ul>
+        </li>
+        <li>
+            <strong>Regra 2 — Palavras Reservadas do JavaScript (<code>className</code> e <code>htmlFor</code>):</strong>
+            <ul>
+                <li>Como o JSX vive dentro de um arquivo JavaScript, não podemos usar atributos HTML cujos nomes colidem com palavras-chave reservadas da gramática do JavaScript.</li>
+                <li><strong><code>class</code> vira <code>className</code>:</strong> Em JS, <code>class</code> é a palavra reservada para criar classes de Orientação a Objetos. Por isso, para estilizar com CSS no JSX, usamos <code>className="meu-estilo"</code> (que se baseia na propriedade nativa <code>element.className</code> da API do DOM).</li>
+                <li><strong><code>for</code> vira <code>htmlFor</code>:</strong> Em JS, <code>for</code> declara um laço de repetição. Portanto, para associar uma tag <code>&lt;label&gt;</code> ao <code>id</code> de um <code>&lt;input&gt;</code>, utiliza-se <code>&lt;label htmlFor="campo-email"&gt;</code>.</li>
+            </ul>
+        </li>
+        <li>
+            <strong>Regra 3 — Padrão camelCase para Atributos Compostos e Eventos:</strong>
+            <ul>
+                <li>Todos os atributos HTML formados por duas palavras e todos os manipuladores de eventos são escritos em <strong>camelCase</strong> (primeira palavra minúscula, segunda com inicial maiúscula).</li>
+                <li>Exemplos: <code>onclick</code> vira <code>onClick</code>; <code>onchange</code> vira <code>onChange</code>; <code>tabindex</code> vira <code>tabIndex</code>; <code>maxlength</code> vira <code>maxLength</code>; <code>readonly</code> vira <code>readOnly</code>; <code> stroke-width</code> (em SVGs) vira <code>strokeWidth</code>.</li>
+            </ul>
+        </li>
+        <li>
+            <strong>Regra 4 — Fechamento Obrigatório de Todas as Tags (Self-Closing Tags):</strong>
+            <ul>
+                <li>O HTML5 é permissivo e aceita tags vazias abertas como <code>&lt;input type="text"&gt;</code>, <code>&lt;img src="..."&gt;</code>, <code>&lt;br&gt;</code> e <code>&lt;hr&gt;</code>.</li>
+                <li>O JSX segue a rigidez do XML: <strong>absolutamente toda tag precisa ser fechada</strong>. Tags que não possuem conteúdo filho devem terminar obrigatoriamente com barra antes do sinal de maior: <code>&lt;input type="text" /&gt;</code>, <code>&lt;img src="..." /&gt;</code>, <code>&lt;br /&gt;</code> e <code>&lt;hr /&gt;</code>.</li>
+            </ul>
+        </li>
+        <li>
+            <strong>Regra 5 — Interpolação de Expressões JavaScript com Chaves <code>{ }</code>:</strong>
+            <ul>
+                <li>Para exibir o valor de variáveis, executar cálculos matemáticos, formatar textos ou renderizar listas dinamicamente dentro do JSX, basta abrir e fechar <strong>chaves <code>{ }</code></strong>. Tudo o que estiver dentro de <code>{ }</code> é avaliado como uma expressão JavaScript em tempo real.</li>
+            </ul>
+        </li>
+    </ol>
+
+    <pre><code class="language-jsx">// Exemplo reunindo todas as regras do JSX na prática:
+function FormularioCadastro() {
+  const textoBotao = "Enviar Cadastro";
+
+  // CORRETO: Envolvido por um Fragmento React &lt;&gt; &lt;/&gt; (não gera div inútil no DOM)
+  return (
+    &lt;&gt;
+      &lt;label htmlFor="nome"&gt;Nome Completo:&lt;/label&gt;
+      &lt;input
+        type="text"
+        id="nome"
+        className="input-estilizado"
+        maxLength={60}
+        placeholder="Digite seu nome..."
+      /&gt;
+      &lt;button type="button" onClick={() =&gt; alert("Enviado!")}&gt;
+        {textoBotao.toUpperCase()}
+      &lt;/button&gt;
+    &lt;/&gt;
+  );
+}
+
+export default FormularioCadastro;</code></pre>
+
+    <h3>Tabela de Conversão Rápida: HTML Tradicional vs. JSX</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Recurso / Atributo</th>
+                <th>No HTML5 Tradicional</th>
+                <th>No React (Sintaxe JSX)</th>
+                <th>Motivo Técnico da Mudança</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>Classe CSS</strong></td>
+                <td><code>&lt;div class="box"&gt;</code></td>
+                <td><code>&lt;div className="box"&gt;</code></td>
+                <td><code>class</code> é palavra reservada de classes POO no JavaScript</td>
+            </tr>
+            <tr>
+                <td><strong>Vínculo de Label</strong></td>
+                <td><code>&lt;label for="nome"&gt;</code></td>
+                <td><code>&lt;label htmlFor="nome"&gt;</code></td>
+                <td><code>for</code> é palavra reservada de laço de repetição no JavaScript</td>
+            </tr>
+            <tr>
+                <td><strong>Eventos de Clique/Ação</strong></td>
+                <td><code>onclick="minhaFuncao()"</code></td>
+                <td><code>onClick={minhaFuncao}</code></td>
+                <td>Padrão camelCase + passagem de referência de função via <code>{ }</code></td>
+            </tr>
+            <tr>
+                <td><strong>Atributos Compostos</strong></td>
+                <td><code>tabindex="1" maxlength="10"</code></td>
+                <td><code>tabIndex={1} maxLength={10}</code></td>
+                <td>Propriedades da API DOM em JavaScript seguem camelCase</td>
+            </tr>
+            <tr>
+                <td><strong>Tags Sem Conteúdo</strong></td>
+                <td><code>&lt;input&gt;</code>, <code>&lt;img&gt;</code>, <code>&lt;br&gt;</code></td>
+                <td><code>&lt;input /&gt;</code>, <code>&lt;img /&gt;</code>, <code>&lt;br /&gt;</code></td>
+                <td>Parser XML estrito exige auto-fechamento (<em>self-closing</em>)</td>
+            </tr>
+            <tr>
+                <td><strong>Agrupador Semântico Invisível</strong></td>
+                <td>Não existe (exige <code>&lt;div&gt;</code>)</td>
+                <td><code>&lt;&gt; ... &lt;/&gt;</code> (Fragment)</td>
+                <td>Cumpre a regra do elemento pai único sem criar nós extras no DOM</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <hr>
+
+    <span class="anchor-h2" id="react2-comentarios"></span>
+    <h2>4. Comentários nos Componentes (Aula 27)</h2>
+
+    <h4>Documentar trechos importantes ou desativar temporariamente elementos durante um <em>debug</em> faz parte da rotina de qualquer desenvolvedor. No React, como um arquivo <code>.jsx</code> mistura <strong>lógica imperativa JavaScript</strong> com <strong>marcação declarativa JSX</strong>, a sintaxe para escrever comentários muda de acordo com a região do arquivo em que o seu cursor está posicionado.</h4>
+
+    <h3>As Duas Zonas de Comentário em um Arquivo <code>.jsx</code></h3>
+
+    <ol>
+        <li>
+            <strong>Zona 1 — Fora do retorno JSX (Na Área Lógica do JavaScript):</strong>
+            <ul>
+                <li>Antes da instrução <code>return (</code> (onde você declara variáveis, funções auxiliares, chamadas de API e <em>Hooks</em>) ou fora da função do componente, você está em um ambiente <strong>100% JavaScript padrão</strong>.</li>
+                <li>Utilize normalmente:
+                    <ul>
+                        <li><code>// Comentário de linha única</code></li>
+                        <li><code>/* Comentário de bloco para múltiplas linhas */</code></li>
+                    </ul>
+                </li>
+            </ul>
+        </li>
+        <li>
+            <strong>Zona 2 — Dentro do retorno JSX (No Meio das Tags da Interface):</strong>
+            <ul>
+                <li>Assim que você entra dentro da árvore de tags do <code>return ( ... )</code>, as regras mudam completamente:
+                    <ul>
+                        <li>Se você tentar usar o comentário do HTML (<code>&lt;!-- erro --&gt;</code>), o compilador do React apontará <strong>erro imediato de sintaxe</strong>.</li>
+                        <li>Se você digitar <code>// comentário</code> solto entre duas tags, o React achará que aquilo é um texto comum e <strong>imprimirá as barras literalmente na tela do usuário!</strong></li>
+                    </ul>
+                </li>
+                <li><strong>A Sintaxe Correta no JSX (<code>{/* ... */}</code>):</strong> Você deve primeiro abrir <strong>chaves <code>{ }</code></strong> (para avisar ao React que está abrindo uma janela de código JavaScript) e, dentro das chaves, usar o comentário de bloco: <code>{/* Seu comentário JSX aqui */}</code>.</li>
+            </ul>
+        </li>
+    </ol>
+
+    <h3>Exemplo Prático: Comentários na Área Lógica vs. Área JSX</h3>
+    <pre><code class="language-jsx">// Comentário de topo de arquivo: Componente de exibição de perfil do usuário
+function Perfil() {
+  // 1. FORA DO RETURN (JavaScript normal):
+  // Aqui definimos as variáveis e regras de negócio do componente
+  const usuario = "Eduardo";
+  const cargo = "Cloud &amp; Frontend Developer";
+
+  /*
+    Também podemos usar comentários de múltiplas linhas padrão do JS
+    antes de chegar na cláusula return.
+  */
+
+  return (
+    &lt;div className="card"&gt;
+      {/* 2. DENTRO DO RETURN (Sintaxe híbrida JSX): */}
+      {/* Obrigatório envolver o comentário de bloco com chaves { } */}
+      &lt;h2&gt;{usuario}&lt;/h2&gt;
+      &lt;p&gt;{cargo}&lt;/p&gt;
+
+      {/* 
+        Dica de Debug: Você também pode comentar tags inteiras no JSX
+        para ocultá-las temporariamente sem apagar o código:
+        &lt;button&gt;Editar Perfil&lt;/button&gt;
+      */}
+    &lt;/div&gt;
+  );
+}
+
+export default Perfil;</code></pre>
+
+    <div class="callout-dica">
+        <p><strong>⌨️ Dica de Produtividade no VS Code (Linux/Ubuntu):</strong> Você não precisa digitar <code>{/* */}</code> manualmente! Basta posicionar o cursor na linha desejada (ou selecionar o bloco de tags) e pressionar o atalho de comentário do VS Code (<strong><code>Ctrl + ;</code></strong> em teclados ABNT2 ou <strong><code>Ctrl + /</code></strong> em teclados US). O VS Code reconhece automaticamente se o cursor está antes do <code>return</code> (inserindo <code>//</code>) ou dentro do bloco JSX (inserindo <code>{/* ... */}</code> automaticamente).</p>
+    </div>
+
+    <hr>
+
+    <span class="anchor-h2" id="react2-template-expressions"></span>
+    <h2>5. Template Expressions (Aula 28)</h2>
+
+    <h4>No React, o JSX permite que você misture marcação estrutural (HTML) com a lógica da programação (JavaScript) de maneira fluida e declarativa. Uma <strong>Template Expression</strong> é a injeção de código JavaScript diretamente dentro do JSX através do uso de <strong>chaves <code>{ }</code></strong>.</h4>
+
+    <h4>Sempre que o React encontra um par de chaves <code>{ }</code> no meio do JSX, ele abre uma "janela de execução JavaScript": tudo o que estiver lá dentro é <strong>avaliado (calculado) em tempo real</strong> e o resultado final é renderizado na tela.</h4>
+
+    <h3>A Regra Fundamental: Expressões (Permitido) vs. Declarações de Bloco (Proibido)</h3>
+    <h4>Por baixo dos panos, o valor colocado dentro de <code>{ }</code> é passado como argumento para a função <code>React.createElement(...)</code>. Por esse motivo técnico, <strong>apenas Expressões JavaScript (código que resolve e retorna um valor) são permitidas dentro das chaves</strong>:</h4>
+
+    <ul>
+        <li><strong>✅ O que é PERMITIDO dentro de <code>{ }</code> (Expressões que retornam valor):</strong>
+            <ul>
+                <li>Leitura de variáveis e constantes (<code>{nome}</code>) ou propriedades de objetos (<code>{usuario.cargo}</code>).</li>
+                <li>Operações matemáticas e aritméticas (<code>{2 + 2}</code>, <code>{2026 - idade}</code>, <code>{preco * 1.15}</code>).</li>
+                <li>Concatenação de strings e métodos nativos (<code>{nome.toUpperCase()}</code>).</li>
+                <li>Chamadas de funções que retornam valores ou outros blocos de JSX (<code>{formatarNome(nome)}</code>).</li>
+                <li>Operadores ternários (<code>{condicao ? 'Sim' : 'Não'}</code>) e operadores lógicos de curto-circuito (<code>{logado &amp;&amp; &lt;Painel /&gt;}</code>).</li>
+            </ul>
+        </li>
+        <li><strong>❌ O que NÃO é permitido dentro de <code>{ }</code> (Declarações de Controle de Bloco):</strong>
+            <ul>
+                <li>Estruturas de controle imperativas como <code>if / else</code>, <code>switch / case</code>, <code>for</code> ou <code>while</code> <strong>não podem ser escritas diretamente dentro das chaves no meio do JSX</strong>, pois em JavaScript blocos de controle não retornam um valor como expressão e causam erro imediato de compilação (<code>SyntaxError: Unexpected token</code>).</li>
+            </ul>
+        </li>
+    </ul>
+
+    <h3>Exemplo em Código: Template Expressions na Prática</h3>
+    <pre><code class="language-jsx">function PerfilUsuario() {
+  const nome = "Eduardo";
+  const idade = 30;
+  const dadosExtras = { profissao: "Arquiteto Cloud &amp; React", cidade: "São Paulo" };
+
+  // Função auxiliar que processa o texto e retorna uma string formatada
+  const formatarNome = (texto) =&gt; texto.toUpperCase();
+
+  return (
+    &lt;div className="perfil-card"&gt;
+      {/* Injetando variáveis, propriedades de objeto e executando funções */}
+      &lt;h2&gt;Bem-vindo, {formatarNome(nome)}!&lt;/h2&gt;
+      &lt;p&gt;Atuação: {dadosExtras.profissao} ({dadosExtras.cidade})&lt;/p&gt;
+      &lt;p&gt;Você nasceu no ano de {2026 - idade}.&lt;/p&gt;
+      &lt;p&gt;Status da Conta: {idade &gt;= 18 ? "Maior de Idade (Ativo)" : "Menor de Idade"}&lt;/p&gt;
+    &lt;/div&gt;
+  );
+}
+
+export default PerfilUsuario;</code></pre>
+
+    <h3>Tabela de Referência: O que colocar dentro das Chaves <code>{ }</code></h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Tipo de Código</th>
+                <th>Sintaxe no JSX</th>
+                <th>Status</th>
+                <th>Explicação Técnica</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>Variáveis e Objetos</strong></td>
+                <td><code>&lt;p&gt;{nome} - {user.email}&lt;/p&gt;</code></td>
+                <td>✅ Válido</td>
+                <td>Resolve diretamente para o valor primitivo (string/number)</td>
+            </tr>
+            <tr>
+                <td><strong>Expressão Matemática</strong></td>
+                <td><code>&lt;span&gt;{2026 - idade}&lt;/span&gt;</code></td>
+                <td>✅ Válido</td>
+                <td>A expressão aritmética é calculada e retorna o número final</td>
+            </tr>
+            <tr>
+                <td><strong>Chamada de Função</strong></td>
+                <td><code>&lt;h2&gt;{formatarNome(nome)}&lt;/h2&gt;</code></td>
+                <td>✅ Válido</td>
+                <td>A função é executada e seu <code>return</code> é injetado no JSX</td>
+            </tr>
+            <tr>
+                <td><strong>Operador Ternário</strong></td>
+                <td><code>{ativo ? &lt;Sim /&gt; : &lt;Nao /&gt;}</code></td>
+                <td>✅ Válido</td>
+                <td>Ternário é uma expressão em JS que devolve um dos dois lados</td>
+            </tr>
+            <tr>
+                <td><strong>Bloco <code>if / else</code> ou <code>for</code></strong></td>
+                <td><code>{if (ativo) { return ... }}</code></td>
+                <td>❌ Erro</td>
+                <td>Statements de bloco não são expressões; use ternário ou função de renderização</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="callout-alerta">
+        <p><strong>⚠️ Atenção com Valores Booleanos, Null e Undefined:</strong> Em Template Expressions, valores como <code>{true}</code>, <code>{false}</code>, <code>{null}</code> e <code>{undefined}</code> são <strong>ignorados visualmente pelo React</strong> e não imprimem nada na tela (isso é proposital para permitir renderização condicional). Caso queira exibir literalmente a palavra <code>"true"</code> ou <code>"false"</code> na tela, converta para string com <code>{String(valorBooleano)}</code>. Da mesma forma, você não pode passar um objeto inteiro direto no JSX (<code>{dadosExtras}</code> dá erro); acesse suas propriedades individuais (<code>{dadosExtras.profissao}</code>).</p>
+    </div>
+
+    <hr>
+
+    <span class="anchor-h2" id="react2-hierarquia"></span>
+    <h2>6. Hierarquia de Componentes: Relação Pai e Filho (Aula 29)</h2>
+
+    <h4>A arquitetura de qualquer aplicação React real é estruturada como uma <strong>Árvore Genealógica de Componentes (Component Tree)</strong>, na qual componentes maiores e mais abrangentes encapsulam componentes menores e especializados. Essa estrutura estabelece a relação fundamental de <strong>Componente Pai (<em>Parent</em>) e Componente Filho (<em>Child</em>)</strong>.</h4>
+
+    <h3>Como funciona a Relação Pai e Filho?</h3>
+    <ul>
+        <li><strong>Componente Pai (<em>Parent Component</em>):</strong> É o componente que importa e instancia outro componente dentro do seu próprio bloco <code>return</code>. Ele atua como um agrupador estrutural ou orquestrador (ex: <code>App</code>, <code>PainelControle</code>, <code>BarraNavegacao</code>).</li>
+        <li><strong>Componente Filho (<em>Child Component</em>):</strong> É o componente menor que é renderizado dentro do Pai (ex: <code>BotaoAcao</code>, <code>AvatarUsuario</code>, <code>ItemMenu</code>).</li>
+        <li><strong>Reaproveitamento em Cascata:</strong> Um componente Filho pode ser reutilizado dezenas de vezes dentro do mesmo Pai ou em múltiplos Pais diferentes ao redor do sistema. Além disso, um Filho também pode ser Pai de outros componentes ainda menores (Netos), formando uma hierarquia limpa e modular.</li>
+    </ul>
+
+    <h3>Exemplo em Código: Composição entre Pai e Filho</h3>
+    <pre><code class="language-jsx">// 1. Componente Filho (Bloco atômico e reutilizável)
+function BotaoAcao() {
+  return &lt;button className="btn-salvar"&gt;Salvar Alterações&lt;/button&gt;;
+}
+
+// 2. Componente Pai (Encapsula e organiza componentes menores)
+function PainelControle() {
+  return (
+    &lt;div className="painel"&gt;
+      &lt;h3&gt;Configurações da Conta&lt;/h3&gt;
+      &lt;p&gt;Gerencie suas preferências de segurança e notificações.&lt;/p&gt;
+      
+      {/* O Pai "PainelControle" está renderizando o Filho "BotaoAcao" */}
+      &lt;BotaoAcao /&gt;
+    &lt;/div&gt;
+  );
+}
+
+export default PainelControle;</code></pre>
+
+    <hr>
+
+    <span class="anchor-h2" id="react2-eventos"></span>
+    <h2>7. Eventos nos Componentes (Aula 30)</h2>
+
+    <h4>Em uma aplicação web moderna, a interface precisa reagir instantaneamente às ações do usuário: cliques em botões, digitação em campos de busca, envio de formulários e movimentos do mouse. No React, toda essa interatividade é controlada por um sistema próprio de eventos de alta performance chamado <strong>Synthetic Events (Eventos Sintéticos)</strong>.</h4>
+
+    <h3>O que são Synthetic Events (Eventos Sintéticos)?</h3>
+    <ul>
+        <li><strong>Camada de Padronização Cross-Browser:</strong> Historicamente, navegadores diferentes (Chrome, Firefox, Safari, Edge) implementavam pequenos detalhes de eventos nativos do DOM de maneiras distintas. O React resolve isso criando uma <strong>camada de abstração (um <em>wrapper</em> chamado <code>SyntheticBaseEvent</code>)</strong> por cima do evento nativo do navegador.</li>
+        <li><strong>Comportamento 100% Idêntico:</strong> Independentemente de o seu usuário estar acessando pelo Safari no iOS, Firefox no Linux Ubuntu ou Chrome no Windows, o evento sintético do React terá exatamente as mesmas propriedades e métodos (como <code>e.target.value</code>, <code>e.preventDefault()</code> e <code>e.stopPropagation()</code>).</li>
+        <li><strong>Delegação Inteligente na Raiz (<em>Event Delegation</em>):</strong> Em vez de pendurar milhares de <em>event listeners</em> pesados diretamente em cada botão ou input do DOM real, o React anexa um único ouvinte centralizado no container raiz (<code>#root</code>) e gerencia o roteamento dos eventos na memória com altíssima eficiência.</li>
+    </ul>
+
+    <h3>As Regras de Sintaxe para Eventos no JSX</h3>
+    <h4>Ao migrar do HTML tradicional para o JSX do React, existem duas regras sintáticas fundamentais para declarar eventos:</h4>
+
+    <ol>
+        <li>
+            <strong>Nomenclatura em <code>camelCase</code>:</strong>
+            <ul>
+                <li>No HTML clássico, os atributos de evento são escritos inteiramente em letras minúsculas (<code>onclick</code>, <code>onchange</code>, <code>onsubmit</code>).</li>
+                <li>No React, você <strong>sempre utilizará o padrão camelCase</strong>: <code>onClick</code>, <code>onChange</code>, <code>onSubmit</code>, <code>onMouseEnter</code>, <code>onKeyDown</code>.</li>
+            </ul>
+        </li>
+        <li>
+            <strong>Passagem de Função via Chaves <code>{ }</code> (e não String):</strong>
+            <ul>
+                <li>No HTML tradicional, você passava uma <strong>string</strong> contendo o código a ser executado: <code>onclick="alert('Olá')"</code>.</li>
+                <li>No React, você passa a <strong>referência da função JavaScript diretamente dentro de uma Template Expression <code>{ }</code></strong>: <code>onClick={lidarComClique}</code>.</li>
+            </ul>
+        </li>
+    </ol>
+
+    <h3>Tabela de Referência: Principais Eventos no React</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Evento no HTML</th>
+                <th>Evento no React (JSX)</th>
+                <th>Quando é Disparado</th>
+                <th>Elementos Mais Comuns</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><code>onclick</code></td>
+                <td><strong><code>onClick</code></strong></td>
+                <td>Quando o usuário clica sobre o elemento</td>
+                <td><code>&lt;button&gt;</code>, <code>&lt;a&gt;</code>, <code>&lt;div&gt;</code></td>
+            </tr>
+            <tr>
+                <td><code>onchange</code> / <code>oninput</code></td>
+                <td><strong><code>onChange</code></strong></td>
+                <td>A cada tecla digitada ou alteração de valor do campo</td>
+                <td><code>&lt;input&gt;</code>, <code>&lt;select&gt;</code>, <code>&lt;textarea&gt;</code></td>
+            </tr>
+            <tr>
+                <td><code>onsubmit</code></td>
+                <td><strong><code>onSubmit</code></strong></td>
+                <td>Quando o formulário é submetido (clique no submit ou tecla Enter)</td>
+                <td><code>&lt;form&gt;</code></td>
+            </tr>
+            <tr>
+                <td><code>onkeydown</code></td>
+                <td><strong><code>onKeyDown</code></strong></td>
+                <td>Quando o usuário pressiona uma tecla física do teclado</td>
+                <td><code>&lt;input&gt;</code>, atalhos globais</td>
+            </tr>
+            <tr>
+                <td><code>onmouseenter</code></td>
+                <td><strong><code>onMouseEnter</code></strong></td>
+                <td>Quando o cursor do mouse entra na área do elemento (hover)</td>
+                <td>Cards, menus dropdown, tooltips</td>
+            </tr>
+            <tr>
+                <td><code>onfocus</code> / <code>onblur</code></td>
+                <td><strong><code>onFocus</code> / <code>onBlur</code></strong></td>
+                <td>Quando um campo ganha foco ou perde o foco (usuário sai do campo)</td>
+                <td>Inputs de validação de formulário</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <hr>
+
+    <span class="anchor-h2" id="react2-funcoes-eventos"></span>
+    <h2>8. Funções nos Eventos (Aula 31)</h2>
+
+    <h4>A maneira como você conecta uma função JavaScript a um evento no JSX determina <strong>quando</strong> e <strong>como</strong> essa lógica será disparada. Existe uma armadilha clássica com o uso de parênteses <code>()</code> que todo desenvolvedor React precisa dominar desde o início.</h4>
+
+    <div class="image-container">
+        <img src="img/react_synthetic_events_flow.svg" loading="lazy" alt="Arquitetura de Synthetic Events e os 3 Cenários de Passagem de Funções">
+        <div class="image-caption">Fluxo dos Eventos Sintéticos do React e comparação visual entre passagem por referência (sem argumentos), Arrow Function anônima (com argumentos) e captura do Objeto de Evento (e)</div>
+    </div>
+
+    <h3>Os 3 Cenários de Atrelamento de Funções aos Eventos</h3>
+
+    <ol>
+        <li>
+            <strong>Cenário 1 — Passando por Referência (Função sem argumentos):</strong>
+            <ul>
+                <li>Quando a sua função não precisa receber parâmetros customizados, você deve passar <strong>apenas o nome da função (sua referência na memória)</strong>: <code>onClick={lidarComClique}</code>.</li>
+                <li><strong>Por que NUNCA colocar parênteses (<code>onClick={lidarComClique()}</code>)?</strong> Em JavaScript, colocar <code>()</code> ao lado do nome de uma função ordena sua <strong>execução imediata</strong>. Se você escrever <code>onClick={lidarComClique()}</code>, a função será disparada sozinha no instante em que o React estiver desenhando a tela (antes mesmo de o usuário tocar no mouse!).</li>
+            </ul>
+        </li>
+        <li>
+            <strong>Cenário 2 — Arrow Function Inline (Função que exige argumentos):</strong>
+            <ul>
+                <li>E quando você precisa passar um parâmetro para a função, como o nome de um usuário ou o ID de um item para deletar (<code>saudarUsuario("Eduardo")</code>)?</li>
+                <li>Como não podemos escrever <code>onClick={saudarUsuario("Eduardo")}</code> diretamente (pois os parênteses executariam a função na hora da renderização), a solução arquitetural é <strong>embrulhar a chamada dentro de uma Arrow Function anônima</strong>: <code>onClick={() =&gt; saudarUsuario("Eduardo")}</code>.</li>
+                <li>Dessa forma, o que você está entregando para o <code>onClick</code> é a declaração da arrow function anônima (<code>() =&gt; ...</code>), que ficará aguardando quieta na memória e só executará <code>saudarUsuario("Eduardo")</code> quando o clique realmente acontecer!</li>
+            </ul>
+        </li>
+        <li>
+            <strong>Cenário 3 — O Objeto de Evento Sintético (<code>e</code>):</strong>
+            <ul>
+                <li>Em todos os eventos (especialmente em <code>onChange</code> de inputs e <code>onSubmit</code> de formulários), o React injeta automaticamente como primeiro argumento da sua função o <strong>Objeto de Evento Sintético</strong>, tradicionalmente chamado de <code>e</code> ou <code>event</code>.</li>
+                <li>Através dele, você acessa propriedades vitais:
+                    <ul>
+                        <li><strong><code>e.target.value</code>:</strong> Retorna o texto exato que o usuário acabou de digitar dentro de um <code>&lt;input&gt;</code> ou a opção escolhida em um <code>&lt;select&gt;</code>.</li>
+                        <li><strong><code>e.preventDefault()</code>:</strong> Cancela o comportamento padrão do navegador (como impedir que um <code>&lt;form onSubmit={...}&gt;</code> recarregue a página inteira).</li>
+                    </ul>
+                </li>
+            </ul>
+        </li>
+    </ol>
+
+    <h3>Documentação em Código: Os 3 Cenários na Prática</h3>
+    <pre><code class="language-jsx">function FormularioInterativo() {
+
+  // 1. Função simples sem argumentos
+  const lidarComClique = () =&gt; {
+    console.log("O botão foi clicado!");
+  };
+
+  // 2. Função que exige um argumento customizado
+  const saudarUsuario = (nome) =&gt; {
+    console.log(`Olá, ${nome}!`);
+  };
+
+  // 3. Função que captura o objeto do evento sintético (e)
+  const capturarDigitacao = (e) =&gt; {
+    console.log("O usuário digitou:", e.target.value);
+  };
+
+  // 4. Bônus: Função de envio de formulário usando e.preventDefault()
+  const enviarFormulario = (e) =&gt; {
+    e.preventDefault(); // Evita o reload padrão da página no navegador!
+    console.log("Formulário enviado via SPA sem recarregar a tela!");
+  };
+
+  return (
+    &lt;div className="painel-interativo"&gt;
+
+      {/* CENÁRIO 1: Passando apenas a referência (SEM parênteses) */}
+      &lt;button onClick={lidarComClique}&gt;Clique Simples&lt;/button&gt;
+
+      {/* CENÁRIO 2: ERRADO seria onClick={saudarUsuario("Eduardo")} -> Executaria sozinho ao carregar a tela! */}
+      {/* CORRETO: Usando uma arrow function anônima para atrasar a execução até o clique */}
+      &lt;button onClick={() =&gt; saudarUsuario("Eduardo")}&gt;Dizer Olá&lt;/button&gt;
+
+      {/* CENÁRIO 3: Capturando o evento de digitação em tempo real via (e.target.value) */}
+      &lt;form onSubmit={enviarFormulario}&gt;
+        &lt;label htmlFor="pesquisa"&gt;Pesquisar:&lt;/label&gt;
+        &lt;input
+          type="text"
+          id="pesquisa"
+          onChange={capturarDigitacao}
+          placeholder="Digite algo..."
+        /&gt;
+        &lt;button type="submit"&gt;Buscar&lt;/button&gt;
+      &lt;/form&gt;
+
+    &lt;/div&gt;
+  );
+}
+
+export default FormularioInterativo;</code></pre>
+
+    <div class="callout-dica">
+        <p><strong>💡 E se eu precisar passar um argumento customizado E TAMBÉM o objeto de evento <code>(e)</code>?</strong> Muito simples! Na Arrow Function anônima, basta receber o <code>(e)</code> no primeiro parêntese e repassá-lo para a sua função junto com o seu argumento: <code>onClick={(e) =&gt; deletarProduto(produto.id, e)}</code>.</p>
+    </div>
+
+    <hr>
+
+    <span class="anchor-h2" id="react2-funcao-renderizacao"></span>
+    <h2>9. Função de Renderização (Aula 32)</h2>
+
+    <h4>Como vimos nas <em>Template Expressions</em>, não podemos jogar um bloco <code>if / else if / else</code> diretamente dentro das chaves <code>{ }</code> no meio do JSX. Quando temos apenas 2 caminhos, o operador ternário (<code>condicao ? A : B</code>) resolve perfeitamente. Mas e quando a regra de negócio exige <strong>3, 4 ou mais variações de interface</strong> dependendo do perfil do usuário ou do status de um pedido?</h4>
+
+    <h4>Aninhar múltiplos ternários um dentro do outro torna o <code>return</code> principal confuso e difícil de dar manutenção. A solução arquitetural elegante para esse cenário é criar uma <strong>Função de Renderização Secundária</strong>.</h4>
+
+    <h3>Como estruturar uma Função de Renderização</h3>
+    <ol>
+        <li>Antes do <code>return</code> principal (dentro do escopo JavaScript do componente), você declara uma função auxiliar (normalmente prefixada com o verbo <code>renderizar...</code> ou <code>render...</code>).</li>
+        <li>Dentro dessa função auxiliar, você tem total liberdade para usar estruturas imperativas do JavaScript como <code>if / else if / else</code> ou <code>switch / case</code>, fazendo cada ramificação retornar o seu respectivo bloco de JSX.</li>
+        <li>No <code>return</code> principal do componente, você simplesmente invoca a função dentro de uma Template Expression: <code>{renderizarPainel(nivelAcesso)}</code>.</li>
+    </ol>
+
+    <h3>Exemplo em Código: Isolando Lógica Condicional Complexa</h3>
+    <pre><code class="language-jsx">function Dashboard() {
+  const usuarioLogado = true;
+  const nivelAcesso = "admin"; // Experimente mudar para "funcionario" ou "visitante"
+
+  // Função de renderização secundária: isola toda a complexidade de if/else fora do JSX principal
+  const renderizarPainel = (nivel) =&gt; {
+    if (nivel === "admin") {
+      return (
+        &lt;div className="painel-admin"&gt;
+          &lt;h2&gt;Acesso Total (Administrador)&lt;/h2&gt;
+          &lt;p&gt;Gerenciamento de Usuários, Auditoria Financeira e Vendas.&lt;/p&gt;
+        &lt;/div&gt;
+      );
+    } else if (nivel === "funcionario") {
+      return (
+        &lt;div className="painel-operacional"&gt;
+          &lt;h2&gt;Acesso Parcial (Operacional)&lt;/h2&gt;
+          &lt;p&gt;Módulo exclusivo para registro de Vendas e Atendimento.&lt;/p&gt;
+        &lt;/div&gt;
+      );
+    } else {
+      return &lt;div className="painel-bloqueado"&gt;Acesso Negado: Permissão insuficiente.&lt;/div&gt;;
+    }
+  };
+
+  // O return principal permanece extremamente limpo, semântico e fácil de ler!
+  return (
+    &lt;div className="dashboard-container"&gt;
+      &lt;h1&gt;Sistema Interno Corporativo&lt;/h1&gt;
+      {/* Chamando a função de renderização para injetar o JSX dinamicamente */}
+      {usuarioLogado ? renderizarPainel(nivelAcesso) : &lt;p&gt;Faça login para continuar.&lt;/p&gt;}
+    &lt;/div&gt;
+  );
+}
+
+export default Dashboard;</code></pre>
+</section>
